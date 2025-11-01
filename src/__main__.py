@@ -1,8 +1,8 @@
 """
-Entry point for campaign generation application
+Entry point for running campaign generator as a module
 """
 
-from src.campaign_generator import CampaignGenerator
+from .campaign_generator import CampaignGenerator
 
 
 def main():
@@ -52,3 +52,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

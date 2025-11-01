@@ -1,0 +1,29 @@
+"""
+Data models and state definitions for campaign generation workflow
+"""
+
+from typing import TypedDict
+from pydantic import BaseModel, Field
+
+
+class ParsedPrompt(BaseModel):
+    """Structured output for parsed campaign prompt"""
+    audience: str = Field(description="Target audience criteria (e.g., contacts in New York who visited studio)")
+    template: str = Field(description="Campaign content details (e.g., 30% discount on Black Friday promotion)")
+    datetime: str = Field(description="Scheduled date and time (e.g., 30th November 9AM)")
+    missing_info: list[str] = Field(description="List of missing or ambiguous information that needs clarification")
+
+
+class CampaignState(TypedDict):
+    """State for campaign generation workflow"""
+    user_prompt: str
+    audience: str
+    template: str
+    datetime: str
+    smart_list_id: str
+    email_template: str
+    schedule_confirmed: bool
+    clarifications_needed: list[str]
+    clarification_responses: dict[str, str]  # Store user's clarification answers
+    current_step: str
+

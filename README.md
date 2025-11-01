@@ -58,13 +58,16 @@ CHROMA_PERSIST_DIRECTORY=./chroma_db
 ### Run Campaign Generator
 
 ```bash
-# Test the campaign generator with example prompt
-uv run python src/campaign-generator.py
+# Run via main entry point
+uv run python main.py
+
+# Or run as module
+uv run python -m src
 ```
 
 This will:
 - Generate a workflow visualization (`campaign_workflow.png`)
-- Parse the example Black Friday campaign prompt
+- Parse the campaign prompt interactively
 - Display extracted audience, template, and datetime information
 
 ### Example Prompt
@@ -80,12 +83,28 @@ promotion and send it on 30th November 9AM
 ```
 ms-campaign-generation-ai/
 ├── src/
-│   └── campaign-generator.py    # Main workflow implementation
+│   ├── __init__.py              # Package initialization
+│   ├── __main__.py              # Module entry point
+│   ├── campaign_generator.py   # Main CampaignGenerator class
+│   ├── models.py                # Pydantic models and state definitions
+│   ├── prompts.py               # LLM prompt templates
+│   ├── nodes.py                 # Workflow node implementations
+│   └── workflow.py              # LangGraph workflow builder
+├── main.py                       # CLI entry point
 ├── pyproject.toml                # Project dependencies (UV)
 ├── requirements.txt              # Pip-compatible dependencies
 ├── .env                          # Environment variables (create this)
 └── README.md                     # This file
 ```
+
+### Module Breakdown
+
+- **`models.py`**: Data models (`ParsedPrompt`, `CampaignState`)
+- **`prompts.py`**: All LLM prompt templates (parsing, clarifications)
+- **`nodes.py`**: Workflow node functions (parse, clarify, process)
+- **`workflow.py`**: LangGraph workflow construction
+- **`campaign_generator.py`**: Main orchestrator class
+- **`main.py`**: Command-line interface
 
 ## Development Status
 
