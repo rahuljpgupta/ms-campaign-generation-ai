@@ -1,10 +1,19 @@
 [project]
 name = "ms-campaign-generation-ai"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-powered marketing campaign generation using LangChain and LangGraph"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "langchain>=1.0.3",
-    "langgraph>=1.0.2",
+    "langchain>=0.1.0",
+    "langgraph>=0.1.0",
+    "langchain-groq>=0.1.0",
+    "langchain-huggingface>=0.0.1",
+    "chromadb>=0.4.0",
+    "fastmcp>=0.1.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "sentence-transformers>=5.1.2",
+    "pygraphviz>=1.11",
+    "pillow>=10.0.0",
 ]
