@@ -4,7 +4,8 @@ WebSocket-aware workflow nodes that communicate via WebSocket instead of termina
 
 import asyncio
 from typing import Dict, Any, Callable
-from .models import CampaignState
+from ..models import CampaignState
+from ..nodes import fetch_and_match_smart_lists as _fetch_and_match_smart_lists
 
 
 # Global storage for pending responses
@@ -214,4 +215,11 @@ def set_response(question_id: str, response: str):
         if not future.done():
             future.set_result(response)
         del pending_responses[question_id]
+
+
+async def fetch_and_match_smart_lists_wrapper(state: CampaignState, llm) -> dict:
+    """
+    Wrapper for fetch_and_match_smart_lists that can be used in LangGraph workflow
+    """
+    return await _fetch_and_match_smart_lists(state, llm)
 
