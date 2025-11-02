@@ -41,6 +41,14 @@ def main():
     print(f"\nAudience: {result.get('audience', 'N/A')}")
     print(f"Template: {result.get('template', 'N/A')}")
     print(f"DateTime: {result.get('datetime', 'N/A')}")
+    
+    # Smart list info
+    if result.get('create_new_list'):
+        print(f"\nSmart List: Will create new list")
+    elif result.get('smart_list_id'):
+        print(f"\nSmart List: {result.get('smart_list_name', 'N/A')}")
+        print(f"List ID: {result.get('smart_list_id')}")
+    
     print(f"\nStatus: {result.get('current_step', 'Unknown')}")
     
     if result.get('clarification_responses'):

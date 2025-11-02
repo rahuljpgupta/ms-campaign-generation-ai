@@ -8,7 +8,10 @@ from .nodes import (
     parse_prompt,
     ask_clarifications,
     process_clarifications,
-    route_after_clarification_check
+    route_after_clarification_check,
+    check_smart_lists,
+    confirm_smart_list_selection,
+    confirm_new_list
 )
 
 
@@ -28,6 +31,9 @@ def build_workflow(llm):
     workflow.add_node("parse_prompt", lambda state: parse_prompt(state, llm))
     workflow.add_node("ask_clarifications", ask_clarifications)
     workflow.add_node("process_clarifications", lambda state: process_clarifications(state, llm))
+    workflow.add_node("check_smart_lists", lambda state: check_smart_lists(state, llm))
+    workflow.add_node("confirm_smart_list_selection", confirm_smart_list_selection)
+    workflow.add_node("confirm_new_list", confirm_new_list)
     workflow.add_node("end_for_now", lambda state: {"current_step": "completed"})
     
     # Set entry point
@@ -40,7 +46,7 @@ def build_workflow(llm):
         route_after_clarification_check,
         {
             "ask_clarifications": "ask_clarifications",
-            "end_for_now": "end_for_now"
+            "check_smart_lists": "check_smart_lists"
         }
     )
     
@@ -53,9 +59,24 @@ def build_workflow(llm):
         route_after_clarification_check,
         {
             "ask_clarifications": "ask_clarifications",  # Loop back if still need clarifications
-            "end_for_now": "end_for_now"  # Continue if all clear
+            "check_smart_lists": "check_smart_lists"  # Check smart lists when clarifications done
         }
     )
+    
+    # After checking smart lists, route based on results
+    workflow.add_conditional_edges(
+        "check_smart_lists",
+        lambda state: state.get("current_step", "end_for_now"),
+        {
+            "confirm_smart_list_selection": "confirm_smart_list_selection",
+            "confirm_new_list": "confirm_new_list",
+            "end_for_now": "end_for_now"
+        }
+    )
+    
+    # After confirming selection or new list, end
+    workflow.add_edge("confirm_smart_list_selection", "end_for_now")
+    workflow.add_edge("confirm_new_list", "end_for_now")
     
     # End node
     workflow.add_edge("end_for_now", END)

@@ -38,18 +38,28 @@ class CampaignGenerator:
         # Build the workflow graph
         self.workflow = build_workflow(self.llm)
     
-    def run(self, user_prompt: str) -> dict:
-        """Run the campaign generation workflow"""
+    def run(self, user_prompt: str, location_id: str = None) -> dict:
+        """
+        Run the campaign generation workflow
+        
+        Args:
+            user_prompt: Campaign description from user
+            location_id: Frederick location ID (optional, defaults to env variable)
+        """
         initial_state = {
             "user_prompt": user_prompt,
             "audience": "",
             "template": "",
             "datetime": "",
+            "location_id": location_id or os.getenv("FREDERICK_LOCATION_ID", ""),
             "smart_list_id": "",
+            "smart_list_name": "",
+            "create_new_list": False,
             "email_template": "",
             "schedule_confirmed": False,
             "clarifications_needed": [],
             "clarification_responses": {},
+            "matched_lists": [],
             "current_step": "parse_prompt"
         }
         
