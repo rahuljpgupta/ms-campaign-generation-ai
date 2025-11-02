@@ -18,8 +18,15 @@ def parse_prompt(state: CampaignState, llm) -> dict:
     parser = JsonOutputParser(pydantic_object=ParsedPrompt)
     chain = PARSE_PROMPT_TEMPLATE | llm | parser
     
+    # Get current date for context
+    from datetime import datetime
+    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    
     try:
-        result = chain.invoke({"prompt": state["user_prompt"]})
+        result = chain.invoke({
+            "prompt": state["user_prompt"],
+            "current_date": current_date
+        })
         
         print(f"✓ Extracted: Audience, Template, DateTime")
         if result['missing_info']:
@@ -57,12 +64,17 @@ def process_clarifications(state: CampaignState, llm) -> dict:
     parser = JsonOutputParser(pydantic_object=ParsedPrompt)
     chain = UPDATE_PROMPT_TEMPLATE | llm | parser
     
+    # Get current date for context
+    from datetime import datetime
+    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    
     try:
         result = chain.invoke({
             "audience": state.get("audience", ""),
             "template": state.get("template", ""),
             "datetime": state.get("datetime", ""),
-            "clarifications": clarification_context
+            "clarifications": clarification_context,
+            "current_date": current_date
         })
         
         print(f"✓ Campaign details updated")

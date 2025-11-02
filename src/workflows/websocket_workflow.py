@@ -42,6 +42,10 @@ def build_websocket_workflow(llm, send_message):
         "confirm_new_list",
         lambda state: websocket_nodes.confirm_new_list_ws(state, send_message)
     )
+    workflow.add_node(
+        "generate_fredql",
+        lambda state: websocket_nodes.generate_smart_list_fredql_ws(state, llm, send_message)
+    )
     workflow.add_node("end_for_now", lambda state: {"current_step": "completed"})
     
     # Set entry point
@@ -78,8 +82,27 @@ def build_websocket_workflow(llm, send_message):
         }
     )
     
-    workflow.add_edge("confirm_smart_list_selection", "end_for_now")
-    workflow.add_edge("confirm_new_list", "end_for_now")
+    # After smart list selection/confirmation, route to FredQL generation or end
+    workflow.add_conditional_edges(
+        "confirm_smart_list_selection",
+        lambda state: state.get("current_step", "end_for_now"),
+        {
+            "generate_fredql": "generate_fredql",
+            "complete_selection": "end_for_now",
+            "end_for_now": "end_for_now"
+        }
+    )
+    
+    workflow.add_conditional_edges(
+        "confirm_new_list",
+        lambda state: state.get("current_step", "end_for_now"),
+        {
+            "generate_fredql": "generate_fredql",
+            "end_for_now": "end_for_now"
+        }
+    )
+    
+    workflow.add_edge("generate_fredql", "end_for_now")
     workflow.add_edge("end_for_now", END)
     
     # Compile with checkpointing for pause/resume

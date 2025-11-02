@@ -25,6 +25,7 @@ class CampaignState(TypedDict):
     smart_list_name: str
     create_new_list: bool  # Whether to create new list or use existing
     matched_lists: list[dict]  # Top matched smart lists from API
+    fredql_query: str | list  # Generated FredQL query for new smart list
     email_template: str
     schedule_confirmed: bool
     clarifications_needed: list[str]

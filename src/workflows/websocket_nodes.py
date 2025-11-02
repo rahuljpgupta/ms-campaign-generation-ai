@@ -115,7 +115,7 @@ async def confirm_smart_list_selection_ws(state: CampaignState, send_message: Ca
                 "create_new_list": True,
                 "smart_list_id": "",
                 "smart_list_name": "",
-                "current_step": "end_for_now"
+                "current_step": "generate_fredql"
             }
         elif 1 <= choice_num <= len(matched_lists):
             selected = matched_lists[choice_num - 1]
@@ -128,7 +128,7 @@ async def confirm_smart_list_selection_ws(state: CampaignState, send_message: Ca
                 "create_new_list": False,
                 "smart_list_id": selected.get("id"),
                 "smart_list_name": selected.get("name"),
-                "current_step": "end_for_now"
+                "current_step": "complete_selection"
             }
         else:
             await send_message({
@@ -140,7 +140,7 @@ async def confirm_smart_list_selection_ws(state: CampaignState, send_message: Ca
                 "create_new_list": True,
                 "smart_list_id": "",
                 "smart_list_name": "",
-                "current_step": "end_for_now"
+                "current_step": "generate_fredql"
             }
     except ValueError:
         await send_message({
@@ -152,7 +152,7 @@ async def confirm_smart_list_selection_ws(state: CampaignState, send_message: Ca
             "create_new_list": True,
             "smart_list_id": "",
             "smart_list_name": "",
-            "current_step": "end_for_now"
+            "current_step": "generate_fredql"
         }
 
 
@@ -195,7 +195,7 @@ async def confirm_new_list_ws(state: CampaignState, send_message: Callable) -> d
             "create_new_list": True,
             "smart_list_id": "",
             "smart_list_name": "",
-            "current_step": "end_for_now"
+            "current_step": "generate_fredql"
         }
     else:
         await send_message({
@@ -222,4 +222,89 @@ async def fetch_and_match_smart_lists_wrapper(state: CampaignState, llm) -> dict
     Wrapper for fetch_and_match_smart_lists that can be used in LangGraph workflow
     """
     return await _fetch_and_match_smart_lists(state, llm)
+
+
+async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message: Callable) -> dict:
+    """
+    Generate FredQL for the smart list based on audience description
+    
+    Args:
+        state: Current campaign state
+        llm: LLM instance
+        send_message: Function to send messages via WebSocket
+    
+    Returns:
+        Updated state with generated FredQL
+    """
+    audience_description = state.get("audience", "")
+    
+    await send_message({
+        "type": "assistant_thinking",
+        "message": "Generating smart list query from your audience description...",
+        "timestamp": asyncio.get_event_loop().time(),
+        "disable_input": True
+    })
+    
+    try:
+        from ..prompts import FREDQL_GENERATION_TEMPLATE
+        import json
+        
+        # Generate FredQL using LLM
+        chain = FREDQL_GENERATION_TEMPLATE | llm
+        response = chain.invoke({"audience_description": audience_description})
+        
+        # Extract FredQL from response
+        fredql_text = response.content.strip()
+        
+        # Try to parse as JSON to validate
+        try:
+            # Remove markdown code blocks if present
+            if fredql_text.startswith("```"):
+                fredql_text = fredql_text.split("```")[1]
+                if fredql_text.startswith("json"):
+                    fredql_text = fredql_text[4:]
+                fredql_text = fredql_text.strip()
+            
+            fredql_query = json.loads(fredql_text)
+            
+            # Format for display
+            fredql_display = json.dumps(fredql_query, indent=2)
+            
+            await send_message({
+                "type": "assistant",
+                "message": f"✓ Generated FredQL query for your audience:\n\n```json\n{fredql_display}\n```\n\n**Audience:** {audience_description}",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            
+            return {
+                "fredql_query": fredql_query,
+                "current_step": "end_for_now"
+            }
+            
+        except json.JSONDecodeError as e:
+            # If parsing fails, still show the generated query but mark as error
+            await send_message({
+                "type": "assistant",
+                "message": f"⚠️ Generated query (validation needed):\n\n```\n{fredql_text}\n```\n\n**Audience:** {audience_description}\n\nNote: Query may need manual review.",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            
+            return {
+                "fredql_query": fredql_text,
+                "current_step": "end_for_now"
+            }
+    
+    except Exception as e:
+        await send_message({
+            "type": "error",
+            "message": f"Failed to generate FredQL query: {str(e)}",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": False
+        })
+        
+        return {
+            "current_step": "end_for_now"
+        }
 

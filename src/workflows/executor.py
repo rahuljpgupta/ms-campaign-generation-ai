@@ -104,6 +104,7 @@ class WorkflowExecutor:
             "smart_list_name": "",
             "create_new_list": False,
             "matched_lists": [],
+            "fredql_query": "",
             "email_template": "",
             "schedule_confirmed": False,
             "clarifications_needed": [],
@@ -190,6 +191,18 @@ class WorkflowExecutor:
         elif state["current_step"] == "confirm_new_list":
             result = await websocket_nodes.confirm_new_list_ws(state, send_msg)
             state.update(result)
+        
+        # After selection/confirmation, check what to do next
+        if state["current_step"] == "generate_fredql":
+            await self._generate_fredql(state, send_msg)
+        elif state["current_step"] == "complete_selection":
+            # Just mark as complete, ready for final summary
+            state["current_step"] = "end_for_now"
+    
+    async def _generate_fredql(self, state, send_msg):
+        """Generate FredQL query for new smart list"""
+        result = await websocket_nodes.generate_smart_list_fredql_ws(state, self.llm, send_msg)
+        state.update(result)
     
     async def _show_final_result(self, state, send_msg, client_id):
         """Show final summary or cancellation message"""
@@ -223,7 +236,9 @@ class WorkflowExecutor:
         summary += f"📅 **Schedule:** {state['datetime']}\n"
         
         if state.get('create_new_list'):
-            summary += f"📋 **Smart List:** Will create new list\n"
+            summary += f"📋 **Smart List:** New list will be created\n"
+            if state.get('fredql_query'):
+                summary += f"   FredQL query generated ✓\n"
         elif state.get('smart_list_id'):
             summary += f"📋 **Smart List:** {state.get('smart_list_name', 'Selected')}\n"
         
