@@ -12,3 +12,8 @@ wheels/
 
 # Generated workflow graphs
 chroma_db/
+
+# Node modules and build artifacts
+client/node_modules/
+client/dist/
+client/.vite/

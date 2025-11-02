@@ -61,6 +61,28 @@ FREDERICK_LOCATION_ID=your_default_location_id
 
 ## Usage
 
+### Run Web UI (Recommended)
+
+Start the FastAPI backend server:
+
+```bash
+# Install web dependencies
+uv add fastapi uvicorn websockets
+
+# Run the WebSocket server
+uv run python server.py
+```
+
+In a separate terminal, start the React frontend:
+
+```bash
+cd client
+npm install
+npm run dev
+```
+
+Access the UI at `http://localhost:3000`
+
 ### Run MCP Server
 
 The MCP (Model Context Protocol) server provides tools to interact with Frederick's API:
@@ -103,7 +125,7 @@ promotion and send it on 30th November 9AM
 
 ```
 ms-campaign-generation-ai/
-├── src/
+├── src/                          # Core Python package
 │   ├── __init__.py              # Package initialization
 │   ├── __main__.py              # Module entry point
 │   ├── campaign_generator.py   # Main CampaignGenerator class
@@ -111,6 +133,16 @@ ms-campaign-generation-ai/
 │   ├── prompts.py               # LLM prompt templates
 │   ├── nodes.py                 # Workflow node implementations
 │   └── workflow.py              # LangGraph workflow builder
+├── client/                       # React JavaScript UI
+│   ├── src/                     # React source code
+│   │   ├── components/         # React components
+│   │   ├── hooks/              # Custom hooks
+│   │   ├── services/           # WebSocket service
+│   │   ├── types/              # Type definitions (JSDoc)
+│   │   └── styles/             # CSS styles
+│   ├── package.json            # Node dependencies
+│   └── vite.config.js          # Vite configuration
+├── server.py                     # FastAPI WebSocket server
 ├── contacts_mcp.py               # MCP server for Frederick API
 ├── test_contacts_mcp.py          # Test script for MCP server
 ├── main.py                       # CLI entry point
