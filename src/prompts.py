@@ -32,7 +32,7 @@ Return the result in JSON format matching this structure:
     "audience": "description of target audience",
     "template": "description of campaign content and offer",
     "datetime": "scheduled date and time",
-    "missing_info": ["list of up to 5 most critical missing items"]
+    "missing_info": ["list of up to 3 most critical missing items"]
 }}"""),
     ("human", "{prompt}")
 ])
