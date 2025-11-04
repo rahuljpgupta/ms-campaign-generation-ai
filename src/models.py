@@ -11,6 +11,7 @@ class ParsedPrompt(BaseModel):
     audience: str = Field(description="Target audience criteria (e.g., contacts in New York who visited studio)")
     template: str = Field(description="Campaign content details (e.g., 30% discount on Black Friday promotion)")
     datetime: str = Field(description="Scheduled date and time (e.g., 30th November 9AM)")
+    smart_list_name: str = Field(default="", description="Short name for the smart list (e.g., 'AI - NYC Studio Members')")
     missing_info: list[str] = Field(description="List of missing or ambiguous information that needs clarification")
 
 

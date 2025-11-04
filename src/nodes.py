@@ -41,6 +41,7 @@ def parse_prompt(state: CampaignState, llm, location: dict = None) -> dict:
             "audience": result["audience"],
             "template": result["template"],
             "datetime": result["datetime"],
+            "smart_list_name": result.get("smart_list_name", ""),
             "clarifications_needed": result["missing_info"],
             "current_step": "clarify_ambiguity"
         }
@@ -97,6 +98,7 @@ def process_clarifications(state: CampaignState, llm, location: dict = None) -> 
             "audience": result["audience"],
             "template": result["template"],
             "datetime": result["datetime"],
+            "smart_list_name": result.get("smart_list_name", ""),
             "clarifications_needed": result["missing_info"],
             "current_step": "check_clarifications"
         }

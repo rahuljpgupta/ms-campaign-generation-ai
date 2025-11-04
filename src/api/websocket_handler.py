@@ -28,8 +28,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     
     # Send welcome message
     await manager.send_message(client_id, {
-        "type": "system",
-        "message": "Connected to Campaign Generator. How can I help you create a campaign today?",
+        "type": "assistant",
+        "message": "Hey! Ready to create an amazing campaign? Tell me what you're thinking.",
         "timestamp": asyncio.get_event_loop().time()
     })
     
@@ -47,12 +47,12 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 manager.set_location(client_id, location)
                 manager.set_credentials(client_id, credentials)
                 
-                # Acknowledge handshake
-                await manager.send_message(client_id, {
-                    "type": "system",
-                    "message": f"Location context received: {location.get('name', 'Unknown')}",
-                    "timestamp": asyncio.get_event_loop().time()
-                })
+                # Acknowledge handshake (silently - no need to tell user about technical details)
+                # await manager.send_message(client_id, {
+                #     "type": "system",
+                #     "message": f"Location context received: {location.get('name', 'Unknown')}",
+                #     "timestamp": asyncio.get_event_loop().time()
+                # })
             
             elif message_type == "user_message":
                 user_message = data.get("message", "")
@@ -81,6 +81,16 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 
                 # Process response
                 await handle_user_response(client_id, question_id, response)
+            
+            elif message_type == "reset":
+                # Reset the campaign creation flow
+                executor.reset_client_state(client_id)
+                
+                await manager.send_message(client_id, {
+                    "type": "assistant",
+                    "message": "All set! Let's start fresh. What would you like to create?",
+                    "timestamp": asyncio.get_event_loop().time()
+                })
     
     except WebSocketDisconnect:
         manager.disconnect(client_id)

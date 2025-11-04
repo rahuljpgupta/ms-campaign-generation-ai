@@ -637,9 +637,15 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
         import json
         from datetime import datetime
         
-        # Generate a display name based on audience description and timestamp
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        display_name = f"{audience_description[:50]} - {timestamp}" if len(audience_description) > 50 else f"{audience_description} - {timestamp}"
+        # Use the smart list name from state if available (generated during clarifications)
+        # Otherwise, generate a short name from audience description
+        display_name = state.get("smart_list_name", "")
+        
+        if not display_name:
+            # Fallback: Take first few words from audience description
+            words = audience_description.split()[:4]
+            short_desc = " ".join(words).capitalize()
+            display_name = f"AI - {short_desc}"
         
         # Ensure fredql_query is a list (not a string)
         if isinstance(fredql_query, str):
@@ -687,7 +693,7 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
         
         await send_message({
             "type": "assistant",
-            "message": f"✓ Smart list created successfully!\n\n**Name:** {display_name}\n**ID:** {smart_list_id}",
+            "message": f"✓ Smart list created successfully!\n\n**Name:** {display_name}",
             "timestamp": asyncio.get_event_loop().time(),
             "disable_input": False
         })

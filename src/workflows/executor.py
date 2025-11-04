@@ -128,6 +128,23 @@ class WorkflowExecutor:
             "current_step": "parse_prompt"
         }
     
+    def reset_client_state(self, client_id: str):
+        """
+        Reset all stored state for a client
+        
+        Args:
+            client_id: Client identifier
+        """
+        # Clear stored session state
+        if client_id in self.client_sessions:
+            del self.client_sessions[client_id]
+        
+        # Clear stored workflow (will be rebuilt on next request)
+        if client_id in self.client_workflows:
+            del self.client_workflows[client_id]
+        
+        print(f"Reset state for client {client_id}")
+    
     async def _run_workflow(self, state, config, client_id, send_msg, location: dict = None, credentials: dict = None):
         """
         Execute workflow with proper async handling
@@ -178,7 +195,7 @@ class WorkflowExecutor:
         
         await send_msg({
             "type": "assistant",
-            "message": f"✓ Understood:\n• Audience: {state['audience']}\n• Campaign: {state['template']}\n• Schedule: {state['datetime']}",
+            "message": f"✓ Understood:\n• **Audience:** {state['audience']}\n• **Email template:** {state['template']}\n• **Schedule:** {state['datetime']}",
             "timestamp": asyncio.get_event_loop().time(),
             "disable_input": True
         })

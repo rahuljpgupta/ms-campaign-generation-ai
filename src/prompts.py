@@ -29,12 +29,14 @@ IMPORTANT:
 - location details like name, timezone, address will be provided later via mcp server. Do not ask such questions.
 - If any component is not clearly specified, note it in missing_info
 - Use the current date provided to calculate specific dates for holidays and relative dates
+- Generate a short smart list name (2-8 words max) that describes the audience. The name should start with "AI - "
 
 Return the result in JSON format matching this structure:
 {{
     "audience": "description of target audience",
     "template": "description of campaign content and offer",
     "datetime": "scheduled date and time",
+    "smart_list_name": "AI - [short 2-8 word description of the audience]",
     "missing_info": ["list of up to 3 most critical missing items"]
 }}"""),
     ("human", "{prompt}")
@@ -65,12 +67,14 @@ IMPORTANT:
 - Make reasonable assumptions for minor details
 - If sufficient information is available, proceed even if some details could be more specific
 - Convert relative dates (like "Black Friday", "next Monday", "in 2 weeks") to specific dates based on today's date
+- Generate a short smart list name (2-8 words max) that describes the audience. The name should start with "AI - "
 
 Return the result in JSON format:
 {{
     "audience": "updated audience description",
     "template": "updated template/content description",
     "datetime": "updated or confirmed datetime",
+    "smart_list_name": "AI - [short 2-8 word description of the audience]",
     "missing_info": ["up to 5 most critical remaining items, empty list if sufficient info"]
 }}"""),
     ("human", "Update the campaign based on the clarifications provided.")
