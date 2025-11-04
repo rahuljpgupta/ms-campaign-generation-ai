@@ -159,7 +159,7 @@ class WorkflowExecutor:
         await self._check_smart_lists_step(current_state, send_msg, credentials)
         
         # Step 4: Handle smart list selection
-        await self._handle_smart_list_selection(current_state, send_msg, location)
+        await self._handle_smart_list_selection(current_state, send_msg, location, credentials)
         
         # Step 5: Show final summary or cancellation
         await self._show_final_result(current_state, send_msg, client_id)
@@ -202,10 +202,22 @@ class WorkflowExecutor:
                 "disable_input": True
             })
             
+            # Navigate to contact lists page (without refresh)
+            location_id = state.get("location_id")
+            if location_id:
+                await send_msg({
+                    "type": "ui_action",
+                    "action": "navigate",
+                    "payload": {
+                        "path": f"/locations/{location_id}"
+                    },
+                    "timestamp": asyncio.get_event_loop().time()
+                })
+            
             check_result = await websocket_nodes.fetch_and_match_smart_lists_wrapper(state, self.llm, credentials)
             state.update(check_result)
     
-    async def _handle_smart_list_selection(self, state, send_msg, location: dict = None):
+    async def _handle_smart_list_selection(self, state, send_msg, location: dict = None, credentials: dict = None):
         """Handle smart list selection or new list creation"""
         if state["current_step"] == "confirm_smart_list_selection":
             result = await websocket_nodes.confirm_smart_list_selection_ws(state, send_msg)
@@ -216,14 +228,27 @@ class WorkflowExecutor:
         
         # After selection/confirmation, check what to do next
         if state["current_step"] == "generate_fredql":
-            await self._generate_fredql(state, send_msg, location)
+            await self._generate_fredql(state, send_msg, location, credentials)
+            
+            # Check if manual list name is required
+            if state["current_step"] == "awaiting_manual_list_name":
+                result = await websocket_nodes.handle_manual_list_name_ws(state, send_msg)
+                state.update(result)
+            # After generating FredQL, directly create (no confirmation)
+            elif state["current_step"] == "create_smart_list":
+                await self._create_smart_list(state, send_msg, credentials)
         elif state["current_step"] == "complete_selection":
             # Just mark as complete, ready for final summary
             state["current_step"] = "end_for_now"
     
-    async def _generate_fredql(self, state, send_msg, location: dict = None):
+    async def _generate_fredql(self, state, send_msg, location: dict = None, credentials: dict = None):
         """Generate FredQL query for new smart list"""
-        result = await websocket_nodes.generate_smart_list_fredql_ws(state, self.llm, send_msg, location)
+        result = await websocket_nodes.generate_smart_list_fredql_ws(state, self.llm, send_msg, location, credentials)
+        state.update(result)
+    
+    async def _create_smart_list(self, state, send_msg, credentials: dict = None):
+        """Create smart list using generated FredQL"""
+        result = await websocket_nodes.create_smart_list_ws(state, send_msg, credentials)
         state.update(result)
     
     async def _show_final_result(self, state, send_msg, client_id):

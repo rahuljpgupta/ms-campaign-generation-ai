@@ -140,13 +140,59 @@ Optional metadata filters (ANDed together):
 
 Metadata operators: equals, not_equals, is_blank, is_not_blank, less_than, greater_than, any_of
 
-Common interaction types:
-- completed_appointment
-- booked_appointment
+IMPORTANT: ONLY use interaction types from this EXACT list (no variations or custom types):
+- browsed_availability
+- scheduled_future_reminder
+- viewed_package_or_membership
+- viewed_my_appointments
+- submitted_lead_capture
+- unsubscribed_transactional_text_messages
+- clicked_link
+- unsubscribed_marketing_text_messages
+- unsubscribed_all_text_messages
+- referred_customer
+- dismissed_recommendation
+- qualified_for_automation
+- subscribed_marketing_emails
+- delivered_email
+- unsubscribed_transactional_emails
+- subscribed_transactional_text_messages
+- added_to_cart
+- undeliverable_email
+- viewed_map
+- subscribed_transactional_emails
+- contact_created
+- confirmed_appointment
+- unsubscribed_all_emails
+- requested_appointment
+- unsubscribed_from_this_offer
 - opened_email
-- clicked_email
-- completed_order
-- visited_webpage
+- visited
+- unsubscribed_marketing_emails
+- unexcluded_from_automation
+- claimed_referral_offer
+- contact_updated
+- booked_appointment
+- shared_referral_link
+- viewed_website_after_booking
+- removed_from_cart
+- viewed_referral_program
+- called_business
+- submitted_feedback
+- spam_report
+- deactivated_vehicle
+- visited_website
+- delivered_text_message
+- expressed_future_interest
+- excluded_from_automation
+- visited_profile_link
+- viewed_referral_claim_form
+- subscribed_marketing_text_messages
+- updated_preference
+- disqualified_for_automation
+- purchased
+
+If you cannot confidently map the user's request to these exact interaction types, you MUST indicate low confidence.
 
 Time conversions:
 - 1 hour = 60 minutes
@@ -201,14 +247,23 @@ When given an audience description, generate a valid FredQL query that:
 2. Uses appropriate filter types and operators
 3. Converts time periods to minutes correctly
 4. Handles multiple conditions with proper AND/OR logic
-5. Returns ONLY the JSON array, no explanations
+5. Uses ONLY interaction types from the valid list above (exact matches required)
+6. Uses ONLY contact properties from the list provided for this location
+7. Returns ONLY the JSON array, no explanations
 
-Common properties:
-- first_name, last_name, email, phone_number, mobile_phone_number
-- city, state, zip_code, country
-- birth_date, gender
-- marketing_email_subscribed, marketing_sms_subscribed
-- tags, favorite_foods (multi_select)
+IMPORTANT Guidelines:
+- If interaction type is mentioned, use the closest match from the valid list above
+- If a contact property is mentioned, use the closest match from the available properties
+- If audience can be represented with basic filters (email, interactions, etc.), generate the query
+- Be creative and flexible in interpreting user intent with available filters
+
+ONLY return error if:
+- The audience CANNOT be reasonably represented with ANY combination of available properties and interaction types
+- For example: if user asks for "customers who completed_service" but only "booked_appointment" exists, 
+  you can use "booked_appointment" as a reasonable proxy
+
+Error format (use ONLY when truly impossible):
+{{"error": "manual_creation_required", "reason": "Specific reason why this cannot be represented"}}
 """
 
 
@@ -216,6 +271,11 @@ FREDQL_GENERATION_TEMPLATE = PromptTemplate.from_template(
     FREDQL_SYSTEM_PROMPT + """
 
 Audience Description: {audience_description}
+
+Location Context: {location_context}
+
+Contact Properties available for this location:
+{contact_properties}
 
 Generate FredQL query:"""
 )
