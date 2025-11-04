@@ -217,14 +217,14 @@ def set_response(question_id: str, response: str):
         del pending_responses[question_id]
 
 
-async def fetch_and_match_smart_lists_wrapper(state: CampaignState, llm) -> dict:
+async def fetch_and_match_smart_lists_wrapper(state: CampaignState, llm, credentials: dict = None) -> dict:
     """
     Wrapper for fetch_and_match_smart_lists that can be used in LangGraph workflow
     """
-    return await _fetch_and_match_smart_lists(state, llm)
+    return await _fetch_and_match_smart_lists(state, llm, credentials)
 
 
-async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message: Callable) -> dict:
+async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message: Callable, location: dict = None) -> dict:
     """
     Generate FredQL for the smart list based on audience description
     
@@ -232,6 +232,7 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
         state: Current campaign state
         llm: LLM instance
         send_message: Function to send messages via WebSocket
+        location: Location data from client
     
     Returns:
         Updated state with generated FredQL
@@ -247,11 +248,18 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
     
     try:
         from ..prompts import FREDQL_GENERATION_TEMPLATE
+        from ..utils.location_utils import format_location_context
         import json
+        
+        # Format location context
+        location_context = format_location_context(location)
         
         # Generate FredQL using LLM
         chain = FREDQL_GENERATION_TEMPLATE | llm
-        response = chain.invoke({"audience_description": audience_description})
+        response = chain.invoke({
+            "audience_description": audience_description,
+            "location_context": location_context
+        })
         
         # Extract FredQL from response
         fredql_text = response.content.strip()

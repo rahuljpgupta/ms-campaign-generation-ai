@@ -51,6 +51,10 @@ class WorkflowExecutor:
         })
         
         try:
+            # Get location data and credentials for this client
+            location = connection_manager.get_location(client_id)
+            credentials = connection_manager.get_credentials(client_id)
+            
             # Helper function to send messages
             async def send_msg(msg):
                 await connection_manager.send_message(client_id, msg)
@@ -63,16 +67,20 @@ class WorkflowExecutor:
                 workflow = self.client_workflows[client_id]
             
             # Initialize state for new conversation
-            initial_state = self._create_initial_state(message)
+            initial_state = self._create_initial_state(message, location)
             
             # Configuration with thread_id for checkpointing
             config = {"configurable": {"thread_id": client_id}}
             
-            # Store initial state
-            self.client_sessions[client_id] = initial_state.copy()
+            # Store initial state, location, and credentials
+            self.client_sessions[client_id] = {
+                "state": initial_state.copy(),
+                "location": location,
+                "credentials": credentials
+            }
             
             # Execute workflow with checkpointing
-            await self._run_workflow(initial_state, config, client_id, send_msg)
+            await self._run_workflow(initial_state, config, client_id, send_msg, location, credentials)
             
         except Exception as e:
             import traceback
@@ -84,22 +92,30 @@ class WorkflowExecutor:
                 "disable_input": False
             })
     
-    def _create_initial_state(self, user_prompt: str) -> dict:
+    def _create_initial_state(self, user_prompt: str, location: dict = None) -> dict:
         """
         Create initial workflow state
         
         Args:
             user_prompt: User's campaign request
+            location: Location data from client
             
         Returns:
             Initial state dictionary
         """
+        # Use location ID from handshake if available, otherwise fallback to env var
+        location_id = ""
+        if location and location.get("id"):
+            location_id = location["id"]
+        else:
+            location_id = os.getenv("FREDERICK_LOCATION_ID", "")
+        
         return {
             "user_prompt": user_prompt,
             "audience": "",
             "template": "",
             "datetime": "",
-            "location_id": os.getenv("FREDERICK_LOCATION_ID", ""),
+            "location_id": location_id,
             "smart_list_id": "",
             "smart_list_name": "",
             "create_new_list": False,
@@ -112,7 +128,7 @@ class WorkflowExecutor:
             "current_step": "parse_prompt"
         }
     
-    async def _run_workflow(self, state, config, client_id, send_msg):
+    async def _run_workflow(self, state, config, client_id, send_msg, location: dict = None, credentials: dict = None):
         """
         Execute workflow with proper async handling
         
@@ -121,28 +137,34 @@ class WorkflowExecutor:
             config: LangGraph configuration
             client_id: Client identifier
             send_msg: Async function to send messages
+            location: Location data from client
+            credentials: API credentials from client
         """
         # Since LangGraph doesn't fully support async nodes in invoke(),
         # we'll manually execute with checkpointing logic
         current_state = state.copy()
-        self.client_sessions[client_id] = current_state
+        self.client_sessions[client_id] = {
+            "state": current_state,
+            "location": location,
+            "credentials": credentials
+        }
         
         # Step 1: Parse prompt
-        await self._parse_prompt_step(current_state, send_msg)
+        await self._parse_prompt_step(current_state, send_msg, location)
         
         # Step 2: Handle clarifications (loop until all resolved)
-        await self._clarification_loop(current_state, send_msg)
+        await self._clarification_loop(current_state, send_msg, location)
         
         # Step 3: Check smart lists
-        await self._check_smart_lists_step(current_state, send_msg)
+        await self._check_smart_lists_step(current_state, send_msg, credentials)
         
         # Step 4: Handle smart list selection
-        await self._handle_smart_list_selection(current_state, send_msg)
+        await self._handle_smart_list_selection(current_state, send_msg, location)
         
         # Step 5: Show final summary or cancellation
         await self._show_final_result(current_state, send_msg, client_id)
     
-    async def _parse_prompt_step(self, state, send_msg):
+    async def _parse_prompt_step(self, state, send_msg, location: dict = None):
         """Parse the user's campaign prompt"""
         await send_msg({
             "type": "assistant",
@@ -151,7 +173,7 @@ class WorkflowExecutor:
             "disable_input": True
         })
         
-        parse_result = parse_prompt(state, self.llm)
+        parse_result = parse_prompt(state, self.llm, location)
         state.update(parse_result)
         
         await send_msg({
@@ -161,16 +183,16 @@ class WorkflowExecutor:
             "disable_input": True
         })
     
-    async def _clarification_loop(self, state, send_msg):
+    async def _clarification_loop(self, state, send_msg, location: dict = None):
         """Handle clarification questions in a loop"""
         while state.get("clarifications_needed") and len(state["clarifications_needed"]) > 0:
             clarification_result = await websocket_nodes.ask_clarifications_ws(state, send_msg)
             state.update(clarification_result)
             
-            process_result = process_clarifications(state, self.llm)
+            process_result = process_clarifications(state, self.llm, location)
             state.update(process_result)
     
-    async def _check_smart_lists_step(self, state, send_msg):
+    async def _check_smart_lists_step(self, state, send_msg, credentials: dict = None):
         """Check for existing smart lists"""
         if state["current_step"] in ["check_clarifications", "clarify_ambiguity"]:
             await send_msg({
@@ -180,10 +202,10 @@ class WorkflowExecutor:
                 "disable_input": True
             })
             
-            check_result = await websocket_nodes.fetch_and_match_smart_lists_wrapper(state, self.llm)
+            check_result = await websocket_nodes.fetch_and_match_smart_lists_wrapper(state, self.llm, credentials)
             state.update(check_result)
     
-    async def _handle_smart_list_selection(self, state, send_msg):
+    async def _handle_smart_list_selection(self, state, send_msg, location: dict = None):
         """Handle smart list selection or new list creation"""
         if state["current_step"] == "confirm_smart_list_selection":
             result = await websocket_nodes.confirm_smart_list_selection_ws(state, send_msg)
@@ -194,14 +216,14 @@ class WorkflowExecutor:
         
         # After selection/confirmation, check what to do next
         if state["current_step"] == "generate_fredql":
-            await self._generate_fredql(state, send_msg)
+            await self._generate_fredql(state, send_msg, location)
         elif state["current_step"] == "complete_selection":
             # Just mark as complete, ready for final summary
             state["current_step"] = "end_for_now"
     
-    async def _generate_fredql(self, state, send_msg):
+    async def _generate_fredql(self, state, send_msg, location: dict = None):
         """Generate FredQL query for new smart list"""
-        result = await websocket_nodes.generate_smart_list_fredql_ws(state, self.llm, send_msg)
+        result = await websocket_nodes.generate_smart_list_fredql_ws(state, self.llm, send_msg, location)
         state.update(result)
     
     async def _show_final_result(self, state, send_msg, client_id):

@@ -11,6 +11,9 @@ PARSE_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([
 
 Today's date is: {current_date}
 
+LOCATION CONTEXT:
+{location_context}
+
 Extract the following information from the user's campaign prompt:
 1. AUDIENCE: Who should receive this campaign (location, demographics, behavior, past interactions, etc.)
 2. TEMPLATE: A short description of the campaign email content. 
@@ -43,6 +46,9 @@ UPDATE_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([
     ("system", """You are updating a marketing campaign based on user clarifications.
 
 Today's date is: {current_date}
+
+LOCATION CONTEXT:
+{location_context}
     
 Original campaign details:
 - Audience: {audience}
@@ -71,8 +77,10 @@ Return the result in JSON format:
 ])
 
 
-# FredQL Smart List Generation System Prompt
+# FredQL Smart List Generation System Prompt  
 FREDQL_SYSTEM_PROMPT = """You are an expert at generating FredQL queries for creating smart contact lists.
+
+{location_context}
 
 ## FredQL Structure
 FredQL uses nested arrays where:

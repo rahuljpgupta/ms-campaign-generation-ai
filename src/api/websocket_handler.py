@@ -39,7 +39,22 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             data = await websocket.receive_json()
             message_type = data.get("type")
             
-            if message_type == "user_message":
+            if message_type == "handshake":
+                # Store location data and credentials from initial handshake
+                location = data.get("location", {})
+                credentials = data.get("credentials", {})
+                
+                manager.set_location(client_id, location)
+                manager.set_credentials(client_id, credentials)
+                
+                # Acknowledge handshake
+                await manager.send_message(client_id, {
+                    "type": "system",
+                    "message": f"Location context received: {location.get('name', 'Unknown')}",
+                    "timestamp": asyncio.get_event_loop().time()
+                })
+            
+            elif message_type == "user_message":
                 user_message = data.get("message", "")
                 
                 # Echo user message

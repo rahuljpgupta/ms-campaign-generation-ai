@@ -23,7 +23,13 @@ FREDERICK_BEARER_TOKEN = os.getenv("FREDERICK_BEARER_TOKEN")
 
 
 @mcp.tool()
-async def get_existing_smart_lists(location_id: str, page_size: int = 1000) -> dict:
+async def get_existing_smart_lists(
+    location_id: str, 
+    page_size: int = 1000,
+    api_key: Optional[str] = None,
+    bearer_token: Optional[str] = None,
+    api_url: Optional[str] = None
+) -> dict:
     """
     Fetch all smart lists (contact lists with list_type='smart') for a specific location.
     Returns only smart lists with filtered fields: name, display_name, filters
@@ -31,6 +37,9 @@ async def get_existing_smart_lists(location_id: str, page_size: int = 1000) -> d
     Args:
         location_id: The Frederick location ID to fetch smart lists for
         page_size: Number of results per page (default: 1000)
+        api_key: Optional API key (falls back to env var)
+        bearer_token: Optional bearer token (falls back to env var)
+        api_url: Optional API base URL (falls back to env var)
     
     Returns:
         Dictionary containing smart lists data with structure:
@@ -49,24 +58,33 @@ async def get_existing_smart_lists(location_id: str, page_size: int = 1000) -> d
             "total_all_lists": 10
         }
     """
-    if not FREDERICK_API_KEY:
+    # Use provided credentials or fall back to environment variables
+    _api_key = api_key or FREDERICK_API_KEY
+    _bearer_token = bearer_token or FREDERICK_BEARER_TOKEN
+    _api_base = api_url or FREDERICK_API_BASE
+    
+    if not _api_key:
         return {
             "error": "FREDERICK_API_KEY not configured",
-            "message": "Please set FREDERICK_API_KEY in .env file"
+            "message": "Please provide api_key parameter or set FREDERICK_API_KEY in .env file"
         }
     
-    if not FREDERICK_BEARER_TOKEN:
+    if not _bearer_token:
         return {
             "error": "FREDERICK_BEARER_TOKEN not configured",
-            "message": "Please set FREDERICK_BEARER_TOKEN in .env file"
+            "message": "Please provide bearer_token parameter or set FREDERICK_BEARER_TOKEN in .env file"
         }
     
-    url = f"{FREDERICK_API_BASE}/locations/{location_id}/contact_lists"
+    # Ensure URL has /v2 path if not already present
+    if not _api_base.endswith('/v2'):
+        _api_base = f"{_api_base}/v2"
+    
+    url = f"{_api_base}/locations/{location_id}/contact_lists"
     
     headers = {
         "accept": "application/vnd.api+json",
-        "authorization": f"Bearer {FREDERICK_BEARER_TOKEN}",
-        "x-api-key": FREDERICK_API_KEY,
+        "authorization": f"Bearer {_bearer_token}",
+        "x-api-key": _api_key,
         "user-agent": "Frederick-Campaign-Generator/1.0"
     }
     

@@ -3,7 +3,7 @@ WebSocket connection manager for handling multiple client connections
 """
 
 from fastapi import WebSocket
-from typing import Dict
+from typing import Dict, Optional
 import asyncio
 
 
@@ -12,6 +12,10 @@ class ConnectionManager:
     
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
+        # Store location data per client
+        self.client_locations: Dict[str, dict] = {}
+        # Store API credentials per client
+        self.client_credentials: Dict[str, dict] = {}
     
     async def connect(self, client_id: str, websocket: WebSocket):
         """
@@ -34,7 +38,11 @@ class ConnectionManager:
         """
         if client_id in self.active_connections:
             del self.active_connections[client_id]
-            print(f"Client {client_id} disconnected")
+        if client_id in self.client_locations:
+            del self.client_locations[client_id]
+        if client_id in self.client_credentials:
+            del self.client_credentials[client_id]
+        print(f"Client {client_id} disconnected")
     
     async def send_message(self, client_id: str, message: dict):
         """
@@ -58,4 +66,50 @@ class ConnectionManager:
             True if client is connected, False otherwise
         """
         return client_id in self.active_connections
+    
+    def set_location(self, client_id: str, location: dict):
+        """
+        Store location data for a client
+        
+        Args:
+            client_id: Client identifier
+            location: Location data dictionary
+        """
+        self.client_locations[client_id] = location
+        print(f"Location data stored for client {client_id}: {location.get('name', 'Unknown')}")
+    
+    def get_location(self, client_id: str) -> Optional[dict]:
+        """
+        Get location data for a client
+        
+        Args:
+            client_id: Client identifier
+            
+        Returns:
+            Location data dictionary or None if not found
+        """
+        return self.client_locations.get(client_id)
+    
+    def set_credentials(self, client_id: str, credentials: dict):
+        """
+        Store API credentials for a client
+        
+        Args:
+            client_id: Client identifier
+            credentials: Credentials dictionary with api_key, bearer_token, api_url
+        """
+        self.client_credentials[client_id] = credentials
+        print(f"API credentials stored for client {client_id}")
+    
+    def get_credentials(self, client_id: str) -> Optional[dict]:
+        """
+        Get API credentials for a client
+        
+        Args:
+            client_id: Client identifier
+            
+        Returns:
+            Credentials dictionary or None if not found
+        """
+        return self.client_credentials.get(client_id)
 

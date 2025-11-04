@@ -8,9 +8,10 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from .models import CampaignState, ParsedPrompt
 from .prompts import PARSE_PROMPT_TEMPLATE, UPDATE_PROMPT_TEMPLATE
+from .utils.location_utils import format_location_context
 
 
-def parse_prompt(state: CampaignState, llm) -> dict:
+def parse_prompt(state: CampaignState, llm, location: dict = None) -> dict:
     """Parse user prompt into audience, template, and datetime components"""
     print(f"\n[Parsing prompt...]")
     
@@ -22,10 +23,14 @@ def parse_prompt(state: CampaignState, llm) -> dict:
     from datetime import datetime
     current_date = datetime.now().strftime("%A, %B %d, %Y")
     
+    # Format location context
+    location_context = format_location_context(location)
+    
     try:
         result = chain.invoke({
             "prompt": state["user_prompt"],
-            "current_date": current_date
+            "current_date": current_date,
+            "location_context": location_context
         })
         
         print(f"✓ Extracted: Audience, Template, DateTime")
@@ -47,7 +52,7 @@ def parse_prompt(state: CampaignState, llm) -> dict:
         }
 
 
-def process_clarifications(state: CampaignState, llm) -> dict:
+def process_clarifications(state: CampaignState, llm, location: dict = None) -> dict:
     """
     Process user's clarification responses and update the campaign state.
     Re-parse or refine the audience, template, and datetime based on clarifications.
@@ -68,13 +73,17 @@ def process_clarifications(state: CampaignState, llm) -> dict:
     from datetime import datetime
     current_date = datetime.now().strftime("%A, %B %d, %Y")
     
+    # Format location context
+    location_context = format_location_context(location)
+    
     try:
         result = chain.invoke({
             "audience": state.get("audience", ""),
             "template": state.get("template", ""),
             "datetime": state.get("datetime", ""),
             "clarifications": clarification_context,
-            "current_date": current_date
+            "current_date": current_date,
+            "location_context": location_context
         })
         
         print(f"✓ Campaign details updated")
@@ -111,7 +120,7 @@ def route_after_clarification_check(state: CampaignState) -> str:
         return "check_smart_lists"
 
 
-async def fetch_and_match_smart_lists(state: CampaignState, llm) -> dict:
+async def fetch_and_match_smart_lists(state: CampaignState, llm, credentials: dict = None) -> dict:
     """
     Fetch existing smart lists and find matches with the audience description.
     Returns top 3 matches using LLM to assess relevance.
@@ -137,8 +146,14 @@ async def fetch_and_match_smart_lists(state: CampaignState, llm) -> dict:
             "current_step": "confirm_new_list"
         }
     
-    # Fetch existing smart lists
-    result = await get_existing_smart_lists(location_id)
+    # Fetch existing smart lists with credentials
+    credentials = credentials or {}
+    result = await get_existing_smart_lists(
+        location_id,
+        api_key=credentials.get("api_key"),
+        bearer_token=credentials.get("bearer_token"),
+        api_url=credentials.get("api_url")
+    )
     
     if "error" in result:
         print(f"✗ Error fetching smart lists: {result.get('message', 'Unknown error')}")
