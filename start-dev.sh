@@ -1,22 +1,14 @@
 #!/bin/bash
 
-# Development startup script for Campaign Generator
+# Development startup script for Campaign Generator Backend
 
-echo "Starting Campaign Generator Development Environment..."
+echo "Starting Campaign Generator Backend Server..."
+echo ""
+echo "Note: The UI is now integrated in platatouille/client"
+echo "Start the Platatouille app separately using: foreman start -f Procfile.dev"
 echo ""
 
-# Start backend server in background
-echo "Starting FastAPI WebSocket server..."
-uv run python server.py &
-BACKEND_PID=$!
-
-# Wait for backend to start
-sleep 2
-
-# Start frontend
-echo "Starting React development server..."
-cd client && npm run dev
-
-# Cleanup on exit
-trap "kill $BACKEND_PID" EXIT
+# Start backend server
+echo "Starting FastAPI WebSocket server on http://localhost:8000..."
+uv run python server.py
 

@@ -73,13 +73,7 @@ uv add fastapi uvicorn websockets
 uv run python server.py
 ```
 
-In a separate terminal, start the React frontend:
-
-```bash
-cd client
-npm install
-npm run dev
-```
+The UI has been migrated to the `platatouille/client` project.
 
 Access the UI at `http://localhost:3000`
 
@@ -133,10 +127,7 @@ ms-campaign-generation-ai/
 │   ├── prompts.py               # LLM prompt templates
 │   ├── nodes.py                 # Workflow node implementations
 │   └── workflow.py              # LangGraph workflow builder
-├── client/                       # React JavaScript UI
-│   ├── src/                     # React source code
-│   │   ├── components/         # React components
-│   │   ├── hooks/              # Custom hooks
+├── (client moved to platatouille/client) # UI now integrated in Platatouille
 │   │   ├── services/           # WebSocket service
 │   │   ├── types/              # Type definitions (JSDoc)
 │   │   └── styles/             # CSS styles
