@@ -247,13 +247,78 @@ class WorkflowExecutor:
         if state["current_step"] == "generate_fredql":
             await self._generate_fredql(state, send_msg, location, credentials)
             
-            # Check if manual list name is required
-            if state["current_step"] == "awaiting_manual_list_name":
-                result = await websocket_nodes.handle_manual_list_name_ws(state, send_msg)
-                state.update(result)
-            # After generating FredQL, directly create (no confirmation)
-            elif state["current_step"] == "create_smart_list":
+            # After generating FredQL, try creating in a loop (with retry logic)
+            print("\n" + "=" * 80)
+            print("[EXECUTOR] Entering creation loop")
+            print(f"[EXECUTOR] Initial current_step: {state['current_step']}")
+            print(f"[EXECUTOR] Initial creation_attempts: {state.get('creation_attempts', 0)}")
+            print("=" * 80 + "\n")
+            
+            loop_iteration = 0
+            while state["current_step"] == "create_smart_list":
+                loop_iteration += 1
+                print(f"\n[EXECUTOR] ===== CREATION LOOP ITERATION {loop_iteration} =====")
+                print(f"[EXECUTOR] Before create_smart_list call - current_step: {state['current_step']}")
+                print(f"[EXECUTOR] Before create_smart_list call - creation_attempts: {state.get('creation_attempts', 0)}")
+                
                 await self._create_smart_list(state, send_msg, credentials)
+                
+                print(f"[EXECUTOR] After create_smart_list call - current_step: {state['current_step']}")
+                print(f"[EXECUTOR] After create_smart_list call - creation_attempts: {state.get('creation_attempts', 0)}")
+                
+                # Check next step after creation attempt
+                if state["current_step"] == "review_smart_list":
+                    print("[EXECUTOR] Success! Moving to review loop")
+                    # Successfully created, review it in a loop
+                    while state["current_step"] == "review_smart_list":
+                        await self._review_smart_list(state, send_msg, location, credentials)
+                        
+                        # Break if we're done or if there's an error
+                        if state["current_step"] not in ["review_smart_list", "process_smart_list_changes"]:
+                            break
+                    break  # Exit creation loop
+                
+                elif state["current_step"] == "retry_smart_list_creation":
+                    # Creation failed (422 error), ask user for better description
+                    print(f"\n[EXECUTOR] ===== ENTERING RETRY FLOW =====")
+                    print(f"[EXECUTOR] Current creation_attempts: {state.get('creation_attempts', 0)}")
+                    print(f"[EXECUTOR] Current audience: {state.get('audience', '')[:80]}...")
+                    
+                    from .retry_smart_list_nodes import retry_smart_list_creation_ws
+                    print(f"[EXECUTOR] Calling retry_smart_list_creation_ws...")
+                    retry_result = await retry_smart_list_creation_ws(state, send_msg)
+                    print(f"[EXECUTOR] Got retry_result: {retry_result}")
+                    state.update(retry_result)
+                    print(f"[EXECUTOR] After state update, current_step: {state['current_step']}")
+                    print(f"[EXECUTOR] After state update, new audience: {state.get('audience', '')[:80]}...")
+                    
+                    # After getting better description, regenerate FredQL
+                    if state["current_step"] == "regenerate_fredql_after_retry":
+                        print(f"[EXECUTOR] Setting current_step to 'generate_fredql'")
+                        state["current_step"] = "generate_fredql"
+                        print(f"[EXECUTOR] Calling _generate_fredql...")
+                        await self._generate_fredql(state, send_msg, location, credentials)
+                        print(f"[EXECUTOR] After FredQL generation, current_step: {state['current_step']}")
+                        print(f"[EXECUTOR] Should loop continue? {state['current_step'] == 'create_smart_list'}")
+                        # Loop will continue and try creating again if current_step is "create_smart_list"
+                    else:
+                        print(f"[EXECUTOR] Not regenerating, breaking loop. current_step: {state['current_step']}")
+                        break  # Exit if user cancelled or error
+                
+                elif state["current_step"] == "awaiting_manual_list_name":
+                    # After 3 failed attempts, get manual list name
+                    print(f"[EXECUTOR] Max attempts reached, awaiting manual list name")
+                    result = await websocket_nodes.handle_manual_list_name_ws(state, send_msg)
+                    state.update(result)
+                    break  # Exit creation loop
+                
+                else:
+                    # Any other state, exit loop
+                    print(f"[EXECUTOR] Unexpected state '{state['current_step']}', exiting loop")
+                    break
+            
+            print(f"\n[EXECUTOR] Exited creation loop. Final current_step: {state['current_step']}")
+            print("=" * 80 + "\n")
         elif state["current_step"] == "complete_selection":
             # Just mark as complete, ready for final summary
             state["current_step"] = "end_for_now"
@@ -267,6 +332,37 @@ class WorkflowExecutor:
         """Create smart list using generated FredQL"""
         result = await websocket_nodes.create_smart_list_ws(state, send_msg, credentials)
         state.update(result)
+    
+    async def _review_smart_list(self, state, send_msg, location: dict = None, credentials: dict = None):
+        """Handle smart list review - ask for user feedback"""
+        from .review_smart_list_nodes import ask_for_review_ws, process_smart_list_changes_ws
+        
+        # Ask for review
+        print(f"[Review Loop] Asking for initial review...")
+        review_result = await ask_for_review_ws(state, send_msg)
+        state.update(review_result)
+        print(f"[Review Loop] User response resulted in current_step: {state['current_step']}")
+        
+        # Keep looping while user wants changes
+        while state["current_step"] == "process_smart_list_changes":
+            print(f"[Review Loop] Processing changes...")
+            change_result = await process_smart_list_changes_ws(state, self.llm, send_msg, location, credentials)
+            state.update(change_result)
+            print(f"[Review Loop] After processing changes, current_step: {state['current_step']}")
+            
+            # After processing changes, it goes back to review_smart_list
+            # Ask for review again
+            if state["current_step"] == "review_smart_list":
+                print(f"[Review Loop] Asking for review again after changes...")
+                review_result = await ask_for_review_ws(state, send_msg)
+                state.update(review_result)
+                print(f"[Review Loop] User response resulted in current_step: {state['current_step']}")
+                # Loop continues if user wants more changes
+            else:
+                print(f"[Review Loop] Breaking loop, current_step is: {state['current_step']}")
+                break
+        
+        print(f"[Review Loop] Exiting review loop with current_step: {state['current_step']}")
     
     async def _show_final_result(self, state, send_msg, client_id):
         """Show final summary or cancellation message"""

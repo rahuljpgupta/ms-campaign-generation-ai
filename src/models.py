@@ -31,5 +31,7 @@ class CampaignState(TypedDict):
     schedule_confirmed: bool
     clarifications_needed: list[str]
     clarification_responses: dict[str, str]  # Store user's clarification answers
+    creation_attempts: int  # Number of times we've tried to create the smart list
+    last_error: str  # Last error message from smart list creation
     current_step: str
 

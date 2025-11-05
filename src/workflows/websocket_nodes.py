@@ -262,7 +262,6 @@ async def fetch_contact_properties_for_validation(location_id: str, credentials:
         
         return True, property_names, formatted
     except Exception as e:
-        print(f"Error fetching contact properties: {e}")
         return False, [], ""
 
 
@@ -389,7 +388,6 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
         
         # Extract FredQL from response
         fredql_text = response.content.strip()
-        print(f"LLM generated FredQL response (raw): {fredql_text[:200]}...")  # Show first 200 chars
         
         # Try to parse as JSON to validate
         try:
@@ -401,75 +399,25 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
                 fredql_text = fredql_text.strip()
             
             fredql_query = json.loads(fredql_text)
-            print(f"Parsed FredQL: {json.dumps(fredql_query, indent=2)[:300]}...")
             
-            # Check if LLM indicated manual creation required
-            if isinstance(fredql_query, dict) and fredql_query.get("error") == "manual_creation_required":
-                reason = fredql_query.get("reason", "Cannot confidently generate query")
-                print(f"LLM returned error: {reason}")
-                await send_message({
-                    "type": "assistant",
-                    "message": f"⚠️ I cannot confidently generate a smart list for this audience.\n\n**Reason:** {reason}\n\n**What to do next:**\nPlease create the smart list manually in the UI and share the name with me. I can then use it for the campaign.",
-                    "timestamp": asyncio.get_event_loop().time(),
-                    "disable_input": False
-                })
-                
-                await send_message({
-                    "type": "question",
-                    "message": "Please enter the name of the smart list you created:",
-                    "question_id": "manual_list_name",
-                    "timestamp": asyncio.get_event_loop().time()
-                })
-                
-                return {
-                    "current_step": "awaiting_manual_list_name"
-                }
+            # Extract the actual query if wrapped in result object
+            if isinstance(fredql_query, dict) and "fredql_query" in fredql_query:
+                fredql_query = fredql_query["fredql_query"]
             
-            # Validate interaction types in the generated FredQL
+            # Validate interaction types in the generated FredQL (log warnings only)
             is_valid, invalid_types = validate_interaction_types(fredql_query)
             if not is_valid:
-                await send_message({
-                    "type": "assistant",
-                    "message": f"⚠️ The generated query uses invalid interaction types: {', '.join(invalid_types)}\n\nThese interaction types are not supported by the system.\n\n**What to do next:**\nPlease create the smart list manually in the UI and share the name with me. I can then use it for the campaign.",
-                    "timestamp": asyncio.get_event_loop().time(),
-                    "disable_input": False
-                })
-                
-                await send_message({
-                    "type": "question",
-                    "message": "Please enter the name of the smart list you created:",
-                    "question_id": "manual_list_name",
-                    "timestamp": asyncio.get_event_loop().time()
-                })
-                
-                return {
-                    "current_step": "awaiting_manual_list_name"
-                }
+                # Continue anyway - user can fix in review loop
+                pass
             
-            # Validate contact properties in the generated FredQL
+            # Validate contact properties (log warnings only)
             if valid_properties:
                 props_valid, invalid_props = validate_contact_properties_in_fredql(fredql_query, valid_properties)
                 if not props_valid:
-                    await send_message({
-                        "type": "assistant",
-                        "message": f"⚠️ The generated query uses invalid contact properties: {', '.join(invalid_props)}\n\nThese properties do not exist in your location's contact schema.\n\n**What to do next:**\nPlease create the smart list manually in the UI and share the name with me. I can then use it for the campaign.",
-                        "timestamp": asyncio.get_event_loop().time(),
-                        "disable_input": False
-                    })
-                    
-                    await send_message({
-                        "type": "question",
-                        "message": "Please enter the name of the smart list you created:",
-                        "question_id": "manual_list_name",
-                        "timestamp": asyncio.get_event_loop().time()
-                    })
-                    
-                    return {
-                        "current_step": "awaiting_manual_list_name"
-                    }
+                    # Continue anyway - user can fix in review loop
+                    pass
             
             # FredQL generated successfully - proceed directly to creation
-            print(f"Generated valid FredQL for audience: {audience_description}")
             
             await send_message({
                 "type": "assistant_thinking",
@@ -484,23 +432,17 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
             }
             
         except json.JSONDecodeError as e:
-            # If parsing fails, ask user to create manually
+            # If parsing fails, show error and end
+            print(f"Error: Failed to parse LLM response as JSON: {e}")
             await send_message({
-                "type": "assistant",
-                "message": f"⚠️ I had trouble generating a valid smart list query.\n\n**What to do next:**\nPlease create the smart list manually in the UI and share the name with me. I can then use it for the campaign.",
+                "type": "error",
+                "message": f"I had trouble generating a valid smart list query. Please try rephrasing your audience description or start over.",
                 "timestamp": asyncio.get_event_loop().time(),
                 "disable_input": False
             })
             
-            await send_message({
-                "type": "question",
-                "message": "Please enter the name of the smart list you created:",
-                "question_id": "manual_list_name",
-                "timestamp": asyncio.get_event_loop().time()
-            })
-            
             return {
-                "current_step": "awaiting_manual_list_name"
+                "current_step": "end_for_now"
             }
     
     except Exception as e:
@@ -527,9 +469,36 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
     Returns:
         Updated state with manual list name
     """
-    # Wait for list name (question already sent in generate_smart_list_fredql_ws)
-    future = asyncio.Future()
-    pending_responses["manual_list_name"] = future
+    # Generate unique question ID
+    question_id = f"manual_list_name_{asyncio.get_event_loop().time()}"
+    
+    # Get error details if available
+    last_error = state.get("last_error", "")
+    fredql_query = state.get("fredql_query", [])
+    
+    import json
+    tried_fredql_str = json.dumps(fredql_query, indent=2) if fredql_query else "N/A"
+    
+    message = f"⚠️ I've tried creating the smart list 3 times but couldn't get it to work.\n\n"
+    if last_error:
+        message += f"**Last error:** {last_error}\n\n"
+    if fredql_query:
+        message += f"**Filters I tried:**\n```json\n{tried_fredql_str}\n```\n\n"
+    message += "Please create the smart list manually in the UI and share its name with me so we can continue."
+    
+    # Send question to user
+    await send_message({
+        "type": "question",
+        "message": message,
+        "question_id": question_id,
+        "timestamp": asyncio.get_event_loop().time(),
+        "disable_input": False
+    })
+    
+    # Wait for list name
+    loop = asyncio.get_running_loop()
+    future = loop.create_future()
+    pending_responses[question_id] = future
     list_name = await future
     
     if list_name and list_name.strip():
@@ -615,6 +584,28 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
     audience_description = state.get("audience", "")
     
     if not location_id or not fredql_query:
+        # If we're in a retry flow and got empty FredQL, try again
+        if state.get("creation_attempts", 0) > 0:
+            creation_attempts = state.get("creation_attempts", 0) + 1
+            
+            if creation_attempts >= 3:
+                await send_message({
+                    "type": "error",
+                    "message": "After 3 attempts, I couldn't generate valid filters. Please create the smart list manually and share its name.",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+                return {
+                    "creation_attempts": creation_attempts,
+                    "current_step": "awaiting_manual_list_name"
+                }
+            
+            return {
+                "creation_attempts": creation_attempts,
+                "error_details_message": "⚠️ The last description resulted in empty filters.\n\nPlease provide a COMPLETE audience description (not just modifications).\n\nExample: 'Female customers in California who visited in the last 30 days'",
+                "current_step": "retry_smart_list_creation"
+            }
+        
         await send_message({
             "type": "error",
             "message": "Missing location ID or FredQL query. Cannot create smart list.",
@@ -676,24 +667,55 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
         )
         
         if "error" in result:
-            await send_message({
-                "type": "error",
-                "message": f"Failed to create smart list: {result.get('message', 'Unknown error')}",
-                "timestamp": asyncio.get_event_loop().time(),
-                "disable_input": False
-            })
-            return {
-                "current_step": "end_for_now"
-            }
+            error_message = result.get('message', 'Unknown error')
+            status_code = result.get('status_code', 0)
+            
+            # Check if it's a 422 validation error
+            if status_code == 422:
+                creation_attempts = state.get("creation_attempts", 0) + 1
+                
+                # Format the FredQL for display
+                import json
+                tried_fredql_str = json.dumps(fredql_query, indent=2)
+                
+                # If we've tried 3 times, ask for manual creation
+                if creation_attempts >= 3:
+                    return {
+                        "creation_attempts": creation_attempts,
+                        "last_error": error_message,
+                        "fredql_query": fredql_query,
+                        "current_step": "awaiting_manual_list_name"
+                    }
+                
+                # Otherwise, ask for more details to retry
+                return {
+                    "creation_attempts": creation_attempts,
+                    "last_error": error_message,
+                    "fredql_query": fredql_query,
+                    "error_details_message": f"⚠️ The backend rejected the smart list filters (attempt {creation_attempts}/3).\n\n**Error:** {error_message}\n\n**Filters I tried:**\n```json\n{tried_fredql_str}\n```",
+                    "current_step": "retry_smart_list_creation"
+                }
+            else:
+                # Other errors - just fail
+                await send_message({
+                    "type": "error",
+                    "message": f"Failed to create smart list: {error_message}",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+                return {
+                    "current_step": "end_for_now"
+                }
         
         # Extract smart list details
         smart_list_data = result.get("data", {})
         smart_list_id = smart_list_data.get("id", "")
-        smart_list_name = smart_list_data.get("attributes", {}).get("name", display_name)
+        # Use display_name from attributes, fallback to the one we sent
+        smart_list_name = smart_list_data.get("attributes", {}).get("display_name", display_name)
         
         await send_message({
             "type": "assistant",
-            "message": f"✓ Smart list created successfully!\n\n**Name:** {display_name}",
+            "message": f"✓ Smart list created successfully!\n\n**Name:** {smart_list_name}",
             "timestamp": asyncio.get_event_loop().time(),
             "disable_input": False
         })
@@ -713,7 +735,8 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
             "smart_list_id": smart_list_id,
             "smart_list_name": smart_list_name,
             "create_new_list": True,
-            "current_step": "end_for_now"
+            "creation_attempts": 0,  # Reset counter on success
+            "current_step": "review_smart_list"
         }
         
     except ImportError:

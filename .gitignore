@@ -17,3 +17,4 @@ chroma_db/
 client/node_modules/
 client/dist/
 client/.vite/
+groqkeys.txt

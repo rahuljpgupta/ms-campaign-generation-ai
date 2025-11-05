@@ -23,6 +23,85 @@ FREDERICK_BEARER_TOKEN = os.getenv("FREDERICK_BEARER_TOKEN")
 
 
 @mcp.tool()
+async def update_smart_list(
+    location_id: str,
+    list_id: str,
+    display_name: str,
+    filters: list,
+    api_key: Optional[str] = None,
+    bearer_token: Optional[str] = None,
+    api_url: Optional[str] = None
+) -> dict:
+    """
+    Update an existing smart list (PATCH request).
+    
+    Args:
+        location_id: Frederick location ID
+        list_id: ID of the smart list to update
+        display_name: Updated display name for the list
+        filters: Updated FredQL filters (nested array structure)
+        api_key: Frederick API key (optional, uses env var if not provided)
+        bearer_token: Frederick bearer token (optional, uses env var if not provided)
+        api_url: Frederick API base URL (optional, uses env var if not provided)
+    
+    Returns:
+        Dictionary with success/error information
+    """
+    _api_key = api_key or FREDERICK_API_KEY
+    _bearer_token = bearer_token or FREDERICK_BEARER_TOKEN
+    _api_base = api_url or FREDERICK_API_BASE
+    
+    if not _api_key or not _bearer_token:
+        return {"error": "API credentials not configured", "message": "Please provide API credentials."}
+    
+    if not _api_base.endswith('/v2'):
+        _api_base = f"{_api_base}/v2"
+    
+    url = f"{_api_base}/locations/{location_id}/contact_lists/{list_id}"
+    
+    headers = {
+        "accept": "application/vnd.api+json",
+        "authorization": f"Bearer {_bearer_token}",
+        "x-api-key": _api_key,
+        "content-type": "application/vnd.api+json",
+        "user-agent": "Frederick-Campaign-Generator/1.0"
+    }
+    
+    payload = {
+        "data": {
+            "type": "contact_lists",
+            "attributes": {
+                "display_name": display_name,
+                "filters": filters
+            },
+            "id": list_id
+        },
+        "meta": None
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.patch(url, headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                return {
+                    "success": True,
+                    "data": response.json(),
+                    "message": "Smart list updated successfully"
+                }
+            else:
+                return {
+                    "error": f"HTTP {response.status_code}",
+                    "message": response.text,
+                    "status_code": response.status_code
+                }
+    except httpx.TimeoutException:
+        return {"error": "Request timeout", "message": "The request to Frederick API timed out after 30 seconds"}
+    except Exception as e:
+        return {"error": "Request failed", "message": str(e)}
+
+
+@mcp.tool()
 async def get_contact_properties(
     location_id: str,
     page_size: int = 1000,

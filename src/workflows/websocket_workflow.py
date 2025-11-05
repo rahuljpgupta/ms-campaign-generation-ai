@@ -7,6 +7,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from ..models import CampaignState
 from ..nodes import parse_prompt, process_clarifications, route_after_clarification_check
 from . import websocket_nodes
+from . import review_smart_list_nodes
+from . import retry_smart_list_nodes
 
 
 def build_websocket_workflow(llm, send_message):
@@ -47,12 +49,24 @@ def build_websocket_workflow(llm, send_message):
         lambda state: websocket_nodes.generate_smart_list_fredql_ws(state, llm, send_message)
     )
     workflow.add_node(
+        "create_smart_list",
+        lambda state: websocket_nodes.create_smart_list_ws(state, send_message)
+    )
+    workflow.add_node(
+        "retry_smart_list_creation",
+        lambda state: retry_smart_list_nodes.retry_smart_list_creation_ws(state, send_message)
+    )
+    workflow.add_node(
         "handle_manual_list_name",
         lambda state: websocket_nodes.handle_manual_list_name_ws(state, send_message)
     )
     workflow.add_node(
-        "create_smart_list",
-        lambda state: websocket_nodes.create_smart_list_ws(state, send_message)
+        "review_smart_list",
+        lambda state: review_smart_list_nodes.ask_for_review_ws(state, send_message)
+    )
+    workflow.add_node(
+        "process_smart_list_changes",
+        lambda state: review_smart_list_nodes.process_smart_list_changes_ws(state, llm, send_message)
     )
     workflow.add_node("end_for_now", lambda state: {"current_step": "completed"})
     
@@ -110,29 +124,47 @@ def build_websocket_workflow(llm, send_message):
         }
     )
     
-    # After FredQL generation, either create list or handle manual input
+    # After FredQL generation, create the list
     workflow.add_conditional_edges(
         "generate_fredql",
         lambda state: state.get("current_step", "end_for_now"),
         {
             "create_smart_list": "create_smart_list",
+            "end_for_now": "end_for_now"
+        }
+    )
+    
+    # After creating smart list, check next step
+    workflow.add_conditional_edges(
+        "create_smart_list",
+        lambda state: state.get("current_step", "end_for_now"),
+        {
+            "review_smart_list": "review_smart_list",
+            "retry_smart_list_creation": "retry_smart_list_creation",
             "awaiting_manual_list_name": "handle_manual_list_name",
             "end_for_now": "end_for_now"
         }
     )
     
-    # After handling manual list name, check next step
+    # After retry, regenerate FredQL with new description
+    workflow.add_edge("retry_smart_list_creation", "generate_fredql")
+    
+    # After manual list name, end
+    workflow.add_edge("handle_manual_list_name", "end_for_now")
+    
+    # After review, either end or process changes
     workflow.add_conditional_edges(
-        "handle_manual_list_name",
+        "review_smart_list",
         lambda state: state.get("current_step", "end_for_now"),
         {
-            "end_for_now": "end_for_now",
-            "cancelled": "end_for_now"
+            "process_smart_list_changes": "process_smart_list_changes",
+            "end_for_now": "end_for_now"
         }
     )
     
-    # After creating smart list, end
-    workflow.add_edge("create_smart_list", "end_for_now")
+    # After processing changes, go back to review
+    workflow.add_edge("process_smart_list_changes", "review_smart_list")
+    
     workflow.add_edge("end_for_now", END)
     
     # Compile with checkpointing for pause/resume

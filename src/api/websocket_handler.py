@@ -109,8 +109,14 @@ async def handle_user_response(client_id: str, question_id: str, response: str):
         question_id: Question identifier
         response: User's response
     """
+    from ..workflows.review_smart_list_nodes import set_response as set_review_response
+    from ..workflows.retry_smart_list_nodes import set_response as set_retry_response
+    
     # Set the response for the pending question
+    # Try all response handlers (regular, review, retry)
     websocket_nodes.set_response(question_id, response)
+    set_review_response(question_id, response)
+    set_retry_response(question_id, response)
     
     # The websocket node functions are awaiting the response and will
     # continue execution automatically. This function just needs to

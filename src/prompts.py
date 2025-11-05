@@ -23,10 +23,10 @@ Extract the following information from the user's campaign prompt:
 IMPORTANT: 
 - Only identify the MOST CRITICAL missing information (maximum 3 questions)
 - Make reasonable assumptions for less critical details
-- Assume we are working with a single location/studio. Do not ask about multiple locations.
+- We are working with a single location/studio. Do not ask about multiple locations.
 - Prioritize: audience criteria > datetime specifics > one line description of the campaign email content
 - Do not ask offer/discount details. Also do not ask about sender details. We'll handle that later.
-- location details like name, timezone, address will be provided later via mcp server. Do not ask such questions.
+- location details like name, timezone, address are provided via Location context. Do not ask such questions.
 - If any component is not clearly specified, note it in missing_info
 - Use the current date provided to calculate specific dates for holidays and relative dates
 - Generate a short smart list name (2-8 words max) that describes the audience. The name should start with "AI - "
@@ -65,6 +65,7 @@ Based on these clarifications, update the campaign details and identify if any i
 IMPORTANT:
 - Only ask for CRITICAL missing information (maximum 5 total questions across all rounds)
 - Make reasonable assumptions for minor details
+- We are working with a single location/studio. Do not ask about multiple locations.
 - If sufficient information is available, proceed even if some details could be more specific
 - Convert relative dates (like "Black Friday", "next Monday", "in 2 weeks") to specific dates based on today's date
 - Generate a short smart list name (2-8 words max) that describes the audience. The name should start with "AI - "
@@ -260,6 +261,7 @@ IMPORTANT Guidelines:
 - If a contact property is mentioned, use the closest match from the available properties
 - If audience can be represented with basic filters (email, interactions, etc.), generate the query
 - Be creative and flexible in interpreting user intent with available filters
+- We are working with a single location/studio.
 
 ONLY return error if:
 - The audience CANNOT be reasonably represented with ANY combination of available properties and interaction types
