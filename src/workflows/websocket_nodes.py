@@ -417,6 +417,20 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
                     # Continue anyway - user can fix in review loop
                     pass
             
+            # Check if the generated filter is empty [] (all customers/subscribers)
+            # Empty filters are valid but cannot be displayed in edit panel
+            if isinstance(fredql_query, list) and len(fredql_query) == 0:
+                await send_message({
+                    "type": "assistant",
+                    "message": "Your audience description matches **all customers** (no filters needed).\n\nSince this doesn't require any specific filtering, you can select your entire contact list when setting up the campaign.",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+                
+                return {
+                    "current_step": "end_for_now"
+                }
+            
             # FredQL generated successfully - proceed directly to creation
             
             await send_message({
