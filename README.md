@@ -24,6 +24,23 @@ Automated campaign workflow:
 
 ## Setup
 
+### Quick Setup (Recommended)
+
+```bash
+# Run the automated setup script
+./setup.sh
+```
+
+This script will:
+- Install Graphviz (if not already installed)
+- Install Python dependencies with proper paths for your system
+- Auto-detect your architecture (ARM/Intel/Linux)
+
+### Manual Setup
+
+<details>
+<summary>Click to expand manual installation steps</summary>
+
 ### 1. Install System Dependencies
 
 ```bash
@@ -34,11 +51,21 @@ brew install graphviz
 ### 2. Install Python Dependencies
 
 ```bash
-# Sync all dependencies
-uv sync
+# For macOS (Apple Silicon/ARM), use this command:
+CFLAGS="-I/opt/homebrew/include" LDFLAGS="-L/opt/homebrew/lib" uv sync
+
+# For macOS (Intel), use:
+# CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" uv sync
+
+# For Linux:
+# uv sync
 ```
 
-### 3. Configure Environment
+**Note**: The environment variables are needed for `pygraphviz` to find the Graphviz C library headers.
+
+</details>
+
+### Configure Environment
 
 Create a `.env` file in the project root:
 
@@ -184,3 +211,40 @@ ms-campaign-generation-ai/
 - Shows match reasons and contact counts
 - User can select existing list or create new one
 - Automatically handles cases with no matches
+
+## Troubleshooting
+
+### `pygraphviz` Build Failure
+
+If you encounter an error like `fatal error: 'graphviz/cgraph.h' file not found` during `uv sync`:
+
+**Solution**: Use the provided setup script which handles this automatically:
+```bash
+./setup.sh
+```
+
+**Or manually** set the compiler flags:
+```bash
+# macOS Apple Silicon (ARM)
+CFLAGS="-I/opt/homebrew/include" LDFLAGS="-L/opt/homebrew/lib" uv sync
+
+# macOS Intel
+CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" uv sync
+```
+
+Make sure Graphviz is installed first: `brew install graphviz`
+
+### WebSocket Connection Issues
+
+If the UI shows "Connecting to server..." indefinitely:
+1. Check backend is running: `uv run python server.py`
+2. Check for port conflicts (port 8000)
+3. Verify `.env` file has required API keys
+4. Check browser console for CORS errors
+
+### LLM Errors
+
+If you see LLM-related errors:
+1. Verify `GROQ_API_KEY` is set in `.env`
+2. Check API key is valid at [Groq Console](https://console.groq.com)
+3. Ensure you have API credits available
