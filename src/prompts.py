@@ -146,56 +146,7 @@ Optional metadata filters (ANDed together):
 Metadata operators: equals, not_equals, is_blank, is_not_blank, less_than, greater_than, any_of
 
 IMPORTANT: ONLY use interaction types from this EXACT list (no variations or custom types):
-- browsed_availability
-- scheduled_future_reminder
-- viewed_package_or_membership
-- viewed_my_appointments
-- submitted_lead_capture
-- unsubscribed_transactional_text_messages
-- clicked_link
-- unsubscribed_marketing_text_messages
-- unsubscribed_all_text_messages
-- referred_customer
-- dismissed_recommendation
-- qualified_for_automation
-- subscribed_marketing_emails
-- delivered_email
-- unsubscribed_transactional_emails
-- subscribed_transactional_text_messages
-- added_to_cart
-- undeliverable_email
-- viewed_map
-- subscribed_transactional_emails
-- contact_created
-- confirmed_appointment
-- unsubscribed_all_emails
-- requested_appointment
-- unsubscribed_from_this_offer
-- opened_email
-- visited
-- unsubscribed_marketing_emails
-- unexcluded_from_automation
-- claimed_referral_offer
-- contact_updated
-- booked_appointment
-- shared_referral_link
-- viewed_website_after_booking
-- removed_from_cart
-- viewed_referral_program
-- called_business
-- submitted_feedback
-- spam_report
-- deactivated_vehicle
-- visited_website
-- delivered_text_message
-- expressed_future_interest
-- excluded_from_automation
-- visited_profile_link
-- viewed_referral_claim_form
-- subscribed_marketing_text_messages
-- updated_preference
-- disqualified_for_automation
-- purchased
+{{interaction_types}}
 
 If you cannot confidently map the user's request to these exact interaction types, you MUST indicate low confidence.
 
@@ -282,6 +233,9 @@ Location Context: {location_context}
 
 Contact Properties available for this location:
 {contact_properties}
+
+Interaction Types available:
+{interaction_types}
 
 Generate FredQL query:"""
 )

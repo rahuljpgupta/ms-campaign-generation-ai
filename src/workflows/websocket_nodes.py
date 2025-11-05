@@ -265,6 +265,54 @@ async def fetch_contact_properties_for_validation(location_id: str, credentials:
         return False, [], ""
 
 
+async def fetch_and_merge_interaction_types(location_id: str, credentials: dict = None) -> tuple[bool, list[str], str]:
+    """
+    Fetch interaction types from API and merge with hardcoded defaults.
+    
+    Args:
+        location_id: Location ID
+        credentials: API credentials
+    
+    Returns:
+        Tuple of (success, interaction_types_list, formatted_types_string)
+    """
+    from ..constants.interaction_types import VALID_INTERACTION_TYPES
+    
+    # Start with hardcoded defaults
+    all_types = set(VALID_INTERACTION_TYPES)
+    
+    try:
+        from contacts_mcp import get_interaction_types
+        
+        credentials = credentials or {}
+        result = await get_interaction_types(
+            location_id,
+            api_key=credentials.get("api_key"),
+            bearer_token=credentials.get("bearer_token"),
+            api_url=credentials.get("api_url")
+        )
+        
+        # If API call succeeds, merge with defaults
+        if "error" not in result:
+            # Extract interaction type names from API response
+            for type_name in result.get("interaction_types", []):
+                if type_name:
+                    all_types.add(type_name)
+        
+        # Convert to sorted list
+        merged_types = sorted(list(all_types))
+        
+        # Format for prompt (bullet list like contact properties)
+        formatted = "\n".join([f"- {type_name}" for type_name in merged_types])
+        
+        return True, merged_types, formatted
+    except Exception as e:
+        # If fetch fails, use hardcoded defaults
+        merged_types = sorted(list(all_types))
+        formatted = "\n".join([f"- {type_name}" for type_name in merged_types])
+        return True, merged_types, formatted
+
+
 def validate_contact_properties_in_fredql(fredql_query: dict, valid_properties: list[str]) -> tuple[bool, list[str]]:
     """
     Validate that all contact property names in FredQL query are valid
@@ -355,9 +403,9 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
             "city", "state", "postal_code", "country", "birth_date", "gender",
             "marketing_email_subscribed", "marketing_text_message_subscribed", "active_membership"
         ]
-        print(f"Warning: Could not fetch contact properties. Using fallback list.")
-    else:
-        print(f"Fetched {len(valid_properties)} contact properties for location {location_id}")
+    
+    # Fetch and merge interaction types
+    _, merged_interaction_types, formatted_interaction_types = await fetch_and_merge_interaction_types(location_id, credentials)
     
     await send_message({
         "type": "assistant_thinking",
@@ -383,7 +431,8 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
         response = chain.invoke({
             "audience_description": audience_description,
             "location_context": location_context,
-            "contact_properties": contact_properties_text
+            "contact_properties": contact_properties_text,
+            "interaction_types": formatted_interaction_types
         })
         
         # Extract FredQL from response

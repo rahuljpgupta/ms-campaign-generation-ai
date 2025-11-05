@@ -425,6 +425,94 @@ async def create_smart_list(
         }
 
 
+@mcp.tool()
+async def get_interaction_types(
+    location_id: str,
+    api_key: Optional[str] = None,
+    bearer_token: Optional[str] = None,
+    api_url: Optional[str] = None
+) -> dict:
+    """
+    Fetch available interaction types for a location.
+    
+    Args:
+        location_id: Frederick location ID
+        api_key: Frederick API key (optional, uses env var if not provided)
+        bearer_token: Frederick bearer token (optional, uses env var if not provided)
+        api_url: Frederick API base URL (optional, uses env var if not provided)
+    
+    Returns:
+        Dictionary with list of interaction type names or error information.
+        On success: {"success": True, "interaction_types": ["type1", "type2", ...]}
+        On error: {"error": "...", "message": "..."}
+    """
+    _api_key = api_key or FREDERICK_API_KEY
+    _bearer_token = bearer_token or FREDERICK_BEARER_TOKEN
+    _api_base = api_url or FREDERICK_API_BASE
+    
+    if not _api_key:
+        return {
+            "error": "FREDERICK_API_KEY not configured",
+            "message": "Please provide api_key parameter or set FREDERICK_API_KEY in .env file"
+        }
+    
+    if not _bearer_token:
+        return {
+            "error": "FREDERICK_BEARER_TOKEN not configured",
+            "message": "Please provide bearer_token parameter or set FREDERICK_BEARER_TOKEN in .env file"
+        }
+    
+    # Ensure URL has /v2 path if not already present
+    if not _api_base.endswith('/v2'):
+        _api_base = f"{_api_base}/v2"
+    
+    url = f"{_api_base}/locations/{location_id}/interaction_types"
+    
+    headers = {
+        "accept": "application/vnd.api+json",
+        "authorization": f"Bearer {_bearer_token}",
+        "x-api-key": _api_key,
+        "user-agent": "Frederick-Campaign-Generator/1.0"
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers, timeout=30.0)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Extract only the names to save context window tokens
+            interaction_type_names = []
+            for item in data.get("data", []):
+                attrs = item.get("attributes", {})
+                name = attrs.get("name")
+                if name:
+                    interaction_type_names.append(name)
+            
+            return {
+                "success": True,
+                "interaction_types": interaction_type_names
+            }
+            
+    except httpx.HTTPStatusError as e:
+        return {
+            "error": "HTTP error",
+            "status_code": e.response.status_code,
+            "message": str(e),
+            "response": e.response.text
+        }
+    except httpx.RequestError as e:
+        return {
+            "error": "Request error",
+            "message": str(e)
+        }
+    except Exception as e:
+        return {
+            "error": "Unexpected error",
+            "message": str(e)
+        }
+
+
 if __name__ == "__main__":
     # Run the MCP server
     mcp.run()
