@@ -308,7 +308,7 @@ class WorkflowExecutor:
                 elif state["current_step"] == "awaiting_manual_list_name":
                     # After 3 failed attempts, get manual list name
                     print(f"[EXECUTOR] Max attempts reached, awaiting manual list name")
-                    result = await websocket_nodes.handle_manual_list_name_ws(state, send_msg)
+                    result = await websocket_nodes.handle_manual_list_name_ws(state, send_msg, credentials)
                     state.update(result)
                     break  # Exit creation loop
                 

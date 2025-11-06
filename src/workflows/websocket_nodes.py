@@ -521,13 +521,14 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
         }
 
 
-async def handle_manual_list_name_ws(state: CampaignState, send_message: Callable) -> dict:
+async def handle_manual_list_name_ws(state: CampaignState, send_message: Callable, credentials: dict = None) -> dict:
     """
     Handle user providing a manually created smart list name
     
     Args:
         state: Current campaign state
         send_message: Function to send messages via WebSocket
+        credentials: API credentials from client
     
     Returns:
         Updated state with manual list name
@@ -558,33 +559,155 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
         "disable_input": False
     })
     
-    # Wait for list name
     loop = asyncio.get_running_loop()
-    future = loop.create_future()
-    pending_responses[question_id] = future
-    list_name = await future
+    location_id = state.get("location_id")
+    credentials = credentials or {}
     
-    if list_name and list_name.strip():
+    # Keep asking for the name until we find a match
+    while True:
+        # Wait for list name
+        future = loop.create_future()
+        pending_responses[question_id] = future
+        list_name = await future
+        # Fetch latest contact lists to validate the provided name
         await send_message({
-            "type": "system",
-            "message": f"✓ I'll use the smart list: {list_name.strip()}",
-            "timestamp": asyncio.get_event_loop().time()
+            "type": "assistant_thinking",
+            "message": "Searching for the smart list you created...",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": True
         })
-        return {
-            "smart_list_name": list_name.strip(),
-            "create_new_list": False,
-            "manual_list": True,
-            "current_step": "end_for_now"
-        }
-    else:
-        await send_message({
-            "type": "system",
-            "message": "Campaign creation cancelled - no list name provided.",
-            "timestamp": asyncio.get_event_loop().time()
-        })
-        return {
-            "current_step": "cancelled"
-        }
+        
+        try:
+            from src.mcp.contacts_mcp import get_existing_smart_lists
+            
+            result = await get_existing_smart_lists(
+                location_id,
+                api_key=credentials.get("api_key"),
+                bearer_token=credentials.get("bearer_token"),
+                api_url=credentials.get("api_url")
+            )
+            
+            if "error" in result:
+                await send_message({
+                    "type": "error",
+                    "message": f"Failed to fetch contact lists: {result.get('message', 'Unknown error')}",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+                return {
+                    "current_step": "cancelled"
+                }
+            
+            # Search for matches (case-insensitive)
+            search_name = list_name.strip().lower()
+            matches = []
+            
+            for smart_list in result.get("data", []):
+                list_id = smart_list.get("id")
+                attrs = smart_list.get("attributes", {})
+                display_name = attrs.get("display_name", "")
+                
+                if display_name and search_name in display_name.lower():
+                    matches.append({
+                        "id": list_id,
+                        "name": display_name
+                    })
+            
+            # Handle different scenarios
+            if len(matches) == 0:
+                # No match found - ask for the name again
+                question_id = f"retry_manual_list_name_{asyncio.get_event_loop().time()}"
+                
+                await send_message({
+                    "type": "question",
+                    "message": f"❌ I couldn't find any smart list matching **\"{list_name.strip()}\"**.\n\nPlease make sure:\n• The smart list was created successfully\n• The name is spelled correctly\n• You have access to this list\n\nPlease provide the correct smart list name:",
+                    "question_id": question_id,
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+                # Loop continues to ask again
+                continue
+            
+            elif len(matches) == 1:
+                # Exactly one match - auto-select
+                selected = matches[0]
+                await send_message({
+                    "type": "assistant",
+                    "message": f"✓ Found your smart list: **{selected['name']}**",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+                return {
+                    "smart_list_id": selected["id"],
+                    "smart_list_name": selected["name"],
+                    "create_new_list": False,
+                    "manual_list": True,
+                    "current_step": "end_for_now"
+                }
+            
+            else:
+                # Multiple matches - ask user to select
+                selection_question_id = f"select_manual_list_{asyncio.get_event_loop().time()}"
+                
+                options = []
+                for idx, match in enumerate(matches, 1):
+                    options.append({
+                        "text": match["name"],
+                        "value": match["id"]
+                    })
+                
+                await send_message({
+                    "type": "question",
+                    "message": "Which one would you like to use?",
+                    "question_id": selection_question_id,
+                    "options": options,
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+                
+                # Wait for selection
+                selection_future = loop.create_future()
+                pending_responses[selection_question_id] = selection_future
+                selected_id = await selection_future
+                
+                # Find the selected smart list
+                selected_list = next((m for m in matches if m["id"] == selected_id), None)
+                
+                if selected_list:
+                    await send_message({
+                        "type": "assistant",
+                        "message": f"✓ Using smart list: **{selected_list['name']}**",
+                        "timestamp": asyncio.get_event_loop().time(),
+                        "disable_input": False
+                    })
+                    return {
+                        "smart_list_id": selected_list["id"],
+                        "smart_list_name": selected_list["name"],
+                        "create_new_list": False,
+                        "manual_list": True,
+                        "current_step": "end_for_now"
+                    }
+                else:
+                    await send_message({
+                        "type": "error",
+                        "message": "Invalid selection. Campaign creation cancelled.",
+                        "timestamp": asyncio.get_event_loop().time(),
+                        "disable_input": False
+                    })
+                    return {
+                        "current_step": "cancelled"
+                    }
+        
+        except Exception as e:
+            await send_message({
+                "type": "error",
+                "message": f"Error validating smart list: {str(e)}",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            return {
+                "current_step": "cancelled"
+            }
 
 
 async def confirm_create_smart_list_ws(state: CampaignState, send_message: Callable) -> dict:
