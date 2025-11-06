@@ -86,7 +86,7 @@ async def create_campaign(
             "type": "campaigns",
             "attributes": {
                 "custom_html_template": custom_html_template,
-                "name": name,
+                "name": f"AI - {name}",
                 "subject_line": subject_line
             }
         },
@@ -329,6 +329,7 @@ async def get_latest_campaign_emails(
 ) -> dict:
     """
     Fetch the latest custom HTML campaign emails for a specific location.
+    Returns only the HTML content to save context window tokens.
     
     Args:
         location_id: Frederick location ID
@@ -337,8 +338,8 @@ async def get_latest_campaign_emails(
         api_url: Frederick API base URL (optional, uses env var if not provided)
     
     Returns:
-        Dictionary with latest campaign emails data or error information.
-        On success: {"success": True, "data": [...]}
+        Dictionary with HTML content from latest emails or error information.
+        On success: {"success": True, "htmls": [{"campaign_name": "...", "subject_line": "...", "html": "..."}]}
         On error: {"error": "...", "message": "...", "status_code": ...}
     """
     _api_key = api_key or FREDERICK_API_KEY
@@ -370,15 +371,32 @@ async def get_latest_campaign_emails(
         "user-agent": "Frederick-Campaign-Generator/1.0"
     }
     
+    # Set pagination parameters to get only 2 latest emails
+    params = {
+        "page[size]": 2
+    }
+    
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, timeout=30.0)
+            response = await client.get(url, headers=headers, params=params, timeout=30.0)
             response.raise_for_status()
             data = response.json()
             
+            # Extract only essential fields (HTML + minimal context)
+            htmls = []
+            for email_doc in data.get("data", []):
+                attrs = email_doc.get("attributes", {})
+                html = attrs.get("html", "")
+                if html:  # Only include if HTML exists
+                    htmls.append({
+                        "campaign_name": attrs.get("campaign_name", "Untitled"),
+                        "subject_line": attrs.get("subject_line", ""),
+                        "html": html
+                    })
+            
             return {
                 "success": True,
-                "data": data.get("data", [])
+                "htmls": [htmls[0]] #TODO: fix this
             }
             
     except httpx.HTTPStatusError as e:
@@ -505,100 +523,6 @@ async def get_offerings(
             "error": "Unexpected error",
             "message": str(e)
         }
-
-
-@mcp.tool()
-async def get_promotions(
-    source: Optional[str] = None,
-    source_customer_id: Optional[str] = None,
-    source_location_id: Optional[str] = None,
-    api_key: Optional[str] = None,
-    bearer_token: Optional[str] = None,
-    api_url: Optional[str] = None
-) -> dict:
-    """
-    Fetch promotions from Frederick API with optional filters.
-    
-    Args:
-        source: Source platform (e.g., "mindbody")
-        source_customer_id: Source customer ID
-        source_location_id: Source location ID
-        api_key: Frederick API key (optional, uses env var if not provided)
-        bearer_token: Frederick bearer token (optional, uses env var if not provided)
-        api_url: Frederick API base URL (optional, uses env var if not provided)
-    
-    Returns:
-        Dictionary with promotions data or error information.
-        On success: {"success": True, "data": [...]}
-        On error: {"error": "...", "message": "...", "status_code": ...}
-    """
-    _api_key = api_key or FREDERICK_API_KEY
-    _bearer_token = bearer_token or FREDERICK_BEARER_TOKEN
-    _api_base = api_url or FREDERICK_API_BASE
-    
-    if not _api_key:
-        return {
-            "error": "FREDERICK_API_KEY not configured",
-            "message": "Please provide api_key parameter or set FREDERICK_API_KEY in .env file"
-        }
-    
-    if not _bearer_token:
-        return {
-            "error": "FREDERICK_BEARER_TOKEN not configured",
-            "message": "Please provide bearer_token parameter or set FREDERICK_BEARER_TOKEN in .env file"
-        }
-    
-    # Ensure URL has /v2 path if not already present
-    if not _api_base.endswith('/v2'):
-        _api_base = f"{_api_base}/v2"
-    
-    url = f"{_api_base}/promotions"
-    
-    headers = {
-        "accept": "application/vnd.api+json",
-        "authorization": f"Bearer {_bearer_token}",
-        "x-api-key": _api_key,
-        "user-agent": "Frederick-Campaign-Generator/1.0"
-    }
-    
-    # Build query parameters
-    params = {}
-    if source:
-        params["filter.source"] = source
-    if source_customer_id:
-        params["filter.source_customer_id"] = source_customer_id
-    if source_location_id:
-        params["filter.source_location_id"] = source_location_id
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, params=params, timeout=30.0)
-            response.raise_for_status()
-            data = response.json()
-            
-            return {
-                "success": True,
-                "data": data.get("data", [])
-            }
-            
-    except httpx.HTTPStatusError as e:
-        return {
-            "error": "HTTP error",
-            "status_code": e.response.status_code,
-            "message": str(e),
-            "response": e.response.text
-        }
-    except httpx.RequestError as e:
-        return {
-            "error": "Request error",
-            "message": str(e)
-        }
-    except Exception as e:
-        return {
-            "error": "Unexpected error",
-            "message": str(e)
-        }
-
 
 if __name__ == "__main__":
     # Run the MCP server

@@ -1035,15 +1035,14 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             })
             reference_templates = "No reference templates available. Create a clean, professional email template."
         else:
-            emails_data = emails_result.get("data", [])[:5]  # Get latest 5
+            htmls_data = emails_result.get("htmls", [])
             
             # Format reference templates
             template_texts = []
-            for idx, email in enumerate(emails_data, 1):
-                attrs = email.get("attributes", {})
-                html = attrs.get("html", "")
-                campaign_name = attrs.get("campaign_name", f"Template {idx}")
-                subject_line = attrs.get("subject_line", "")
+            for idx, email in enumerate(htmls_data, 1):
+                html = email.get("html", "")
+                campaign_name = email.get("campaign_name", f"Template {idx}")
+                subject_line = email.get("subject_line", "")
                 
                 if html:
                     template_section = f"### Template {idx}: {campaign_name}\n"
@@ -1149,7 +1148,7 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
                 "current_step": "end_for_now"
             }
         
-        campaign_data = campaign_result.get("data", {}).get("data", {})
+        campaign_data = campaign_result.get("data", {})
         campaign_id = campaign_data.get("id")
         
         if not campaign_id:
