@@ -10,7 +10,7 @@ import os
 from dotenv import load_dotenv
 
 # Import the tools from MCP server
-from contacts_mcp import get_existing_smart_lists
+from src.mcp.contacts_mcp import get_existing_smart_lists
 
 load_dotenv()
 

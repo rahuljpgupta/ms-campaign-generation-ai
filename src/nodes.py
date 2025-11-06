@@ -140,7 +140,7 @@ async def fetch_and_match_smart_lists(state: CampaignState, llm, credentials: di
     
     # Import MCP tool
     try:
-        from contacts_mcp import get_existing_smart_lists
+        from src.mcp.contacts_mcp import get_existing_smart_lists
     except ImportError:
         print("✗ MCP tools not available, skipping smart list check")
         return {

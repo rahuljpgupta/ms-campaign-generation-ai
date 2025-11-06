@@ -293,7 +293,7 @@ If the requested changes are not possible, return:
         
         # Update the smart list via MCP
         try:
-            from contacts_mcp import update_smart_list
+            from src.mcp.contacts_mcp import update_smart_list
         except ImportError:
             await send_message({
                 "type": "error",

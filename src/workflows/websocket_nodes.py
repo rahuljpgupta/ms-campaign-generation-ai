@@ -236,7 +236,7 @@ async def fetch_contact_properties_for_validation(location_id: str, credentials:
         Tuple of (success, property_names_list, formatted_properties_string)
     """
     try:
-        from contacts_mcp import get_contact_properties
+        from src.mcp.contacts_mcp import get_contact_properties
         
         credentials = credentials or {}
         result = await get_contact_properties(
@@ -282,7 +282,7 @@ async def fetch_and_merge_interaction_types(location_id: str, credentials: dict 
     all_types = set(VALID_INTERACTION_TYPES)
     
     try:
-        from contacts_mcp import get_interaction_types
+        from src.mcp.contacts_mcp import get_interaction_types
         
         credentials = credentials or {}
         result = await get_interaction_types(
@@ -687,7 +687,7 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
     })
     
     try:
-        from contacts_mcp import create_smart_list
+        from src.mcp.contacts_mcp import create_smart_list
         import json
         from datetime import datetime
         
