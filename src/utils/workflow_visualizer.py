@@ -4,7 +4,7 @@ Workflow visualization utility
 
 import os
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
+from .llm_utils import get_llm
 
 load_dotenv()
 
@@ -22,12 +22,8 @@ def draw_workflow_graph(output_path: str = "workflow_graph.png") -> str:
     try:
         from ..workflows.websocket_workflow import build_websocket_workflow
         
-        # Initialize LLM
-        llm = ChatGroq(
-            temperature=0.7,
-            model_name="openai/gpt-oss-120b",
-            groq_api_key=os.getenv("GROQ_API_KEY")
-        )
+        # Initialize LLM based on environment configuration
+        llm = get_llm(temperature=0.7)
         
         # Dummy send message function
         async def dummy_send(msg):

@@ -6,11 +6,11 @@ import os
 import asyncio
 from typing import Dict, Any
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
 
 from .websocket_workflow import build_websocket_workflow
 from . import websocket_nodes
 from ..nodes import parse_prompt, process_clarifications
+from ..utils.llm_utils import get_llm
 
 # Load environment variables
 load_dotenv()
@@ -22,12 +22,8 @@ class WorkflowExecutor:
     """
     
     def __init__(self):
-        # Initialize LLM instance
-        self.llm = ChatGroq(
-            temperature=0.7,
-            model_name="openai/gpt-oss-120b",
-            groq_api_key=os.getenv("GROQ_API_KEY")
-        )
+        # Initialize LLM instance based on environment configuration
+        self.llm = get_llm(temperature=0.7)
         
         # Client session storage - stores workflow states
         self.client_sessions: Dict[str, Dict[str, Any]] = {}

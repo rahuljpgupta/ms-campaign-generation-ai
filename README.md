@@ -15,7 +15,7 @@ Automated campaign workflow:
 ## Tech Stack
 
 - **LangChain & LangGraph**: Workflow orchestration
-- **Groq**: LLM inference (openai/gpt-oss-120b)
+- **OpenAI / Groq**: LLM inference (configurable)
 - **HuggingFace**: Embeddings (sentence-transformers)
 - **ChromaDB**: Vector storage
 - **FastMCP**: MCP server creation
@@ -43,8 +43,17 @@ uv sync
 Create a `.env` file in the project root:
 
 ```bash
-# Groq API Key for LLM inference
+# LLM Configuration
+# Set to "true" to use OpenAI, "false" to use Groq
+USE_OPEN_AI_MODEL=false
+
+# OpenAI Configuration (required if USE_OPEN_AI_MODEL=true)
+OPEN_AI_KEY=your_openai_api_key_here
+OPEN_AI_MODEL=gpt-4  # or gpt-3.5-turbo, gpt-4-turbo, etc.
+
+# Groq Configuration (required if USE_OPEN_AI_MODEL=false)
 GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=openai/gpt-oss-120b  # or llama-3.1-70b-versatile, mixtral-8x7b-32768, etc.
 
 # HuggingFace API Token (optional, for private models)
 HUGGINGFACE_API_TOKEN=your_huggingface_token_here

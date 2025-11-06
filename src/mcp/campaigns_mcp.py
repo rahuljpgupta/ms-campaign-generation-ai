@@ -396,7 +396,7 @@ async def get_latest_campaign_emails(
             
             return {
                 "success": True,
-                "htmls": [htmls[0]] #TODO: fix this
+                "htmls": htmls
             }
             
     except httpx.HTTPStatusError as e:
