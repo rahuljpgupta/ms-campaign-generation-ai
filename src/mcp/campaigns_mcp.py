@@ -227,16 +227,23 @@ async def create_email_document(
 
 @mcp.tool()
 async def get_social_profile_links(
+    source_platform: Optional[str] = None,
+    source_location_id: Optional[str] = None,
+    source_customer_id: Optional[str] = None,
     api_key: Optional[str] = None,
     bearer_token: Optional[str] = None,
     api_url: Optional[str] = None
 ) -> dict:
     """
     Fetch social profile links from Frederick API.
+    Requires X-Universal-Customer header with source platform information.
     
     Args:
-        api_key: Frederick API key (optional, uses env var if not provided)
-        bearer_token: Frederick bearer token (optional, uses env var if not provided)
+        source_platform: Source platform (e.g., "booker", "mindbody")
+        source_location_id: Source location ID
+        source_customer_id: Source customer ID
+        api_key: Frederick API key
+        bearer_token: Frederick bearer token
         api_url: Frederick API base URL (optional, uses env var if not provided)
     
     Returns:
@@ -272,6 +279,16 @@ async def get_social_profile_links(
         "x-api-key": _api_key,
         "user-agent": "Frederick-Campaign-Generator/1.0"
     }
+    
+    # Add X-Universal-Customer header if source information is provided
+    if source_platform and source_location_id and source_customer_id:
+        import json
+        universal_customer = {
+            "source_platform": source_platform,
+            "source_location_id": source_location_id,
+            "source_customer_id": source_customer_id
+        }
+        headers["X-Universal-Customer"] = json.dumps(universal_customer)
     
     try:
         async with httpx.AsyncClient() as client:

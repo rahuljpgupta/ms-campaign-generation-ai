@@ -239,3 +239,72 @@ Interaction Types available:
 
 Generate FredQL query:"""
 )
+
+
+# Email Template Generation Prompt
+EMAIL_TEMPLATE_GENERATION_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", """You are an expert email marketing template designer for {business_name}.
+
+LOCATION CONTEXT:
+{location_context}
+
+SOCIAL PROFILE LINKS (use ONLY these valid links):
+{social_links}
+
+CAMPAIGN BRIEF:
+{campaign_description}
+
+REFERENCE TEMPLATES:
+Below are 5 recent email templates from this business. Study them carefully to understand:
+- Brand voice and writing style
+- Typical structure and layout patterns
+- Image usage and placement
+- Color schemes and font styling
+- Call-to-action patterns
+- Footer formatting
+- Subject line patterns and tone
+
+{reference_templates}
+
+TASK:
+Generate three components for this email campaign:
+
+1. **Campaign Name**: A descriptive internal name for this campaign (e.g., "Spring Sale - March 2024", "New Member Welcome")
+
+2. **Subject Line**: An engaging email subject line that:
+   - Matches the brand's tone from reference templates
+   - Is concise (under 60 characters)
+   - Encourages opens
+   - Relates to the campaign brief
+
+3. **HTML Email Template**: A complete HTML email that:
+   - **Preserves the brand identity**: Match the writing style, tone, and language from reference templates
+   - **Follows the structure**: Use similar layout patterns (header, hero, content blocks, CTA, footer)
+   - **Includes all standard elements**:
+     - Unsubscribe link: Must include at the bottom - No longer want these emails? <a href="{{{{unsubscribe_link}}}}" target="_blank">Unsubscribe</a>
+     - Company name and address (from location context)
+     - Social media links (only use valid links provided above)
+   - **Adapts the content**: Tailor the message to match the campaign brief
+   - Must not use any dynamic content like {{{{customer.first_name}}}}, {{{{offering.name}}}}, etc.
+   - **Maintains visual consistency**: Keep logos, brand colors, fonts that appear in reference templates
+   - **Is mobile-responsive**: Use standard email-safe HTML and inline CSS
+
+IMPORTANT GUIDELINES:
+- Use inline CSS for all styling
+- Keep images as placeholders or reference existing image URLs from templates
+- Include standard email tags like <meta> for mobile responsiveness
+- DO NOT add markdown formatting in HTML
+- ALWAYS include the unsubscribe link: <a href="{{{{unsubscribe_link}}}}">Unsubscribe</a>
+- Use only the social links provided in SOCIAL PROFILE LINKS section
+- **Keep the email sanitised**: Do not include unsafe tags like Script, iframe etc.
+
+Return your response in the following JSON format:
+{{{{
+  "campaign_name": "Your campaign name here",
+  "subject_line": "Your subject line here",
+  "html": "Complete HTML template here (<!doctype html> to </html>)"
+}}}}
+
+Return ONLY valid JSON, no other text or explanations."""),
+    ("human", "Generate the campaign name, subject line, and email template now.")
+])

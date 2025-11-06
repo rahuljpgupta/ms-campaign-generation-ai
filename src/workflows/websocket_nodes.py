@@ -642,7 +642,7 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
                     "smart_list_name": selected["name"],
                     "create_new_list": False,
                     "manual_list": True,
-                    "current_step": "end_for_now"
+                    "current_step": "create_campaign"
                 }
             
             else:
@@ -685,7 +685,7 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
                         "smart_list_name": selected_list["name"],
                         "create_new_list": False,
                         "manual_list": True,
-                        "current_step": "end_for_now"
+                        "current_step": "create_campaign"
                     }
                 else:
                     await send_message({
@@ -939,6 +939,304 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
         await send_message({
             "type": "error",
             "message": f"Error creating smart list: {str(e)}",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": False
+        })
+        return {
+            "current_step": "end_for_now"
+        }
+
+
+async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, location: dict = None, credentials: dict = None) -> dict:
+    """
+    Create campaign and generate email template
+    
+    Args:
+        state: Current campaign state
+        llm: Language model instance from workflow
+        send_message: Function to send messages via WebSocket
+        location: Location context with source platform information
+        credentials: API credentials from client
+    
+    Returns:
+        Updated state with campaign ID and email template
+    """
+    try:
+        location_id = state.get("location_id")
+        location = location or state.get("location", {})
+        campaign_description = state.get("template", "")
+        smart_list_name = state.get("smart_list_name", "")
+        
+        credentials = credentials or {}
+        
+        # Notify user we're starting campaign creation
+        await send_message({
+            "type": "assistant_thinking",
+            "message": "Creating your campaign and generating email template...",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": True
+        })
+        
+        # Step 1: Fetch social profile links
+        from src.mcp.campaigns_mcp import get_social_profile_links
+        
+        # Extract source platform information from location
+        source_platform = location.get("source_platform", "")
+        source_location_id = location.get("source_location_id", "")
+        source_customer_id = location.get("source_customer_id", "")
+        
+        social_links_result = await get_social_profile_links(
+            source_platform=source_platform,
+            source_location_id=source_location_id,
+            source_customer_id=source_customer_id,
+            api_key=credentials.get("api_key"),
+            bearer_token=credentials.get("bearer_token"),
+            api_url=credentials.get("api_url")
+        )
+        
+        if "error" in social_links_result:
+            await send_message({
+                "type": "system",
+                "message": "⚠️ Couldn't fetch social profile links, continuing without them.",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            social_links_data = []
+        else:
+            social_links_data = social_links_result.get("data", [])
+        
+        # Format social links (only include valid URLs)
+        social_links_formatted = []
+        for link in social_links_data:
+            attrs = link.get("attributes", {})
+            platform = attrs.get("platform", "")
+            url = attrs.get("url", "")
+            if url:
+                social_links_formatted.append(f"- {platform}: {url}")
+        
+        social_links_text = "\n".join(social_links_formatted) if social_links_formatted else "No social profile links available"
+        
+        # Step 2: Fetch latest 5 campaign emails
+        from src.mcp.campaigns_mcp import get_latest_campaign_emails
+        
+        emails_result = await get_latest_campaign_emails(
+            location_id,
+            api_key=credentials.get("api_key"),
+            bearer_token=credentials.get("bearer_token"),
+            api_url=credentials.get("api_url")
+        )
+        
+        if "error" in emails_result:
+            await send_message({
+                "type": "system",
+                "message": "⚠️ Couldn't fetch reference email templates, will create a basic template.",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            reference_templates = "No reference templates available. Create a clean, professional email template."
+        else:
+            emails_data = emails_result.get("data", [])[:5]  # Get latest 5
+            
+            # Format reference templates
+            template_texts = []
+            for idx, email in enumerate(emails_data, 1):
+                attrs = email.get("attributes", {})
+                html = attrs.get("html", "")
+                campaign_name = attrs.get("campaign_name", f"Template {idx}")
+                subject_line = attrs.get("subject_line", "")
+                
+                if html:
+                    template_section = f"### Template {idx}: {campaign_name}\n"
+                    if subject_line:
+                        template_section += f"**Subject Line:** {subject_line}\n"
+                    template_section += f"```html\n{html}\n```\n"
+                    template_texts.append(template_section)
+            
+            reference_templates = "\n\n".join(template_texts) if template_texts else "No reference templates available. Create a clean, professional email template."
+        
+        # Step 3: Generate email template using LLM
+        await send_message({
+            "type": "assistant_thinking",
+            "message": "Generating your email template based on your existing campaigns...",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": True
+        })
+        
+        from src.prompts import EMAIL_TEMPLATE_GENERATION_PROMPT
+        from src.utils.location_utils import format_location_context
+        
+        location_context = format_location_context(location)
+        business_name = location.get("name", "Our Business")
+        
+        # Prepare prompt
+        email_prompt = EMAIL_TEMPLATE_GENERATION_PROMPT.format_messages(
+            business_name=business_name,
+            location_context=location_context,
+            social_links=social_links_text,
+            campaign_description=campaign_description,
+            reference_templates=reference_templates
+        )
+        
+        # Generate email template, subject line, and campaign name
+        response = await llm.ainvoke(email_prompt)
+        response_text = response.content.strip()
+        
+        # Clean up markdown if LLM added it
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]  # Remove ```json
+        if response_text.startswith("```"):
+            response_text = response_text[3:]  # Remove ```
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]  # Remove closing ```
+        response_text = response_text.strip()
+        
+        # Parse JSON response
+        import json
+        try:
+            email_data = json.loads(response_text)
+            campaign_name = email_data.get("campaign_name", "")
+            subject_line = email_data.get("subject_line", "")
+            email_html = email_data.get("html", "")
+            
+            # Fallback to defaults if any field is missing
+            if not campaign_name:
+                from datetime import datetime
+                campaign_name = f"AI - {smart_list_name.replace('AI - ', '')} - {datetime.now().strftime('%b %d, %Y at %I:%M %p')}"
+            if not subject_line:
+                subject_line = f"News from {business_name}"
+            if not email_html:
+                await send_message({
+                    "type": "error",
+                    "message": "Failed to generate email template. Please try again.",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+                return {
+                    "current_step": "end_for_now"
+                }
+        except json.JSONDecodeError as e:
+            await send_message({
+                "type": "error",
+                "message": "Failed to parse email template response. Please try again.",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            return {
+                "current_step": "end_for_now"
+            }
+        
+        # Step 4: Create campaign
+        from src.mcp.campaigns_mcp import create_campaign
+        
+        campaign_result = await create_campaign(
+            location_id,
+            campaign_name,
+            subject_line,
+            custom_html_template=True,
+            api_key=credentials.get("api_key"),
+            bearer_token=credentials.get("bearer_token"),
+            api_url=credentials.get("api_url")
+        )
+        
+        if "error" in campaign_result:
+            await send_message({
+                "type": "error",
+                "message": f"Failed to create campaign: {campaign_result.get('message', 'Unknown error')}",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            return {
+                "current_step": "end_for_now"
+            }
+        
+        campaign_data = campaign_result.get("data", {}).get("data", {})
+        campaign_id = campaign_data.get("id")
+        
+        if not campaign_id:
+            await send_message({
+                "type": "error",
+                "message": "Campaign created but couldn't retrieve campaign ID",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            return {
+                "current_step": "end_for_now"
+            }
+        
+        # Step 5: Create email document
+        from src.mcp.campaigns_mcp import create_email_document
+        
+        email_doc_result = await create_email_document(
+            location_id,
+            campaign_id,
+            email_html,
+            document="{}",
+            api_key=credentials.get("api_key"),
+            bearer_token=credentials.get("bearer_token"),
+            api_url=credentials.get("api_url")
+        )
+        
+        if "error" in email_doc_result:
+            await send_message({
+                "type": "error",
+                "message": f"Campaign created but failed to save email template: {email_doc_result.get('message', 'Unknown error')}",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            return {
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name,
+                "current_step": "end_for_now"
+            }
+        
+        # Extract email document ID
+        email_doc_data = email_doc_result.get("data", {})
+        email_document_id = email_doc_data.get("id")
+        
+        if not email_document_id:
+            await send_message({
+                "type": "error",
+                "message": "Email template saved but couldn't retrieve document ID",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+            return {
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name,
+                "current_step": "end_for_now"
+            }
+        
+        # Success! Navigate to HTML editor
+        await send_message({
+            "type": "assistant",
+            "message": f"✅ Campaign created successfully!\n\n**Campaign:** {campaign_name}\n**Subject Line:** {subject_line}\n**Email template:** Generated and saved\n\nOpening the HTML editor for you to review and customize...",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": False
+        })
+        
+        # Navigate to HTML editor
+        await send_message({
+            "type": "ui_action",
+            "action": "navigate",
+            "payload": {
+                "path": f"/locations/{location_id}/email_documents/{email_document_id}/html-editor"
+            },
+            "timestamp": asyncio.get_event_loop().time()
+        })
+        
+        return {
+            "campaign_id": campaign_id,
+            "campaign_name": campaign_name,
+            "subject_line": subject_line,
+            "email_document_id": email_document_id,
+            "email_html": email_html,
+            "current_step": "end_for_now"
+        }
+        
+    except Exception as e:
+        await send_message({
+            "type": "error",
+            "message": f"Error creating campaign: {str(e)}",
             "timestamp": asyncio.get_event_loop().time(),
             "disable_input": False
         })

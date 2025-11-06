@@ -57,7 +57,7 @@ async def ask_for_review_ws(state: CampaignState, send_message: Callable) -> dic
     # Check if user wants to proceed or make changes
     if response_lower in ["yes", "good", "go ahead", "looks good", "perfect", "done", "ok", "okay"]:
         return {
-            "current_step": "end_for_now"
+            "current_step": "create_campaign"
         }
     else:
         # User wants to make changes

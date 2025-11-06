@@ -178,7 +178,10 @@ class WorkflowExecutor:
         # Step 4: Handle smart list selection
         await self._handle_smart_list_selection(current_state, send_msg, location, credentials)
         
-        # Step 5: Show final summary or cancellation
+        # Step 5: Create campaign and generate email template
+        await self._create_campaign_step(current_state, send_msg, location, credentials)
+        
+        # Step 6: Show final summary or cancellation
         await self._show_final_result(current_state, send_msg, client_id)
     
     async def _parse_prompt_step(self, state, send_msg, location: dict = None):
@@ -320,8 +323,8 @@ class WorkflowExecutor:
             print(f"\n[EXECUTOR] Exited creation loop. Final current_step: {state['current_step']}")
             print("=" * 80 + "\n")
         elif state["current_step"] == "complete_selection":
-            # Just mark as complete, ready for final summary
-            state["current_step"] = "end_for_now"
+            # Existing smart list selected, proceed to create campaign
+            state["current_step"] = "create_campaign"
     
     async def _generate_fredql(self, state, send_msg, location: dict = None, credentials: dict = None):
         """Generate FredQL query for new smart list"""
@@ -363,6 +366,12 @@ class WorkflowExecutor:
                 break
         
         print(f"[Review Loop] Exiting review loop with current_step: {state['current_step']}")
+    
+    async def _create_campaign_step(self, state, send_msg, location: dict = None, credentials: dict = None):
+        """Create campaign and generate email template"""
+        if state["current_step"] == "create_campaign":
+            result = await websocket_nodes.create_campaign_ws(state, self.llm, send_msg, location, credentials)
+            state.update(result)
     
     async def _show_final_result(self, state, send_msg, client_id):
         """Show final summary or cancellation message"""
