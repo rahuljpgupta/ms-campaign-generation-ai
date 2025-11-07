@@ -125,6 +125,121 @@ async def create_campaign(
 
 
 @mcp.tool()
+async def schedule_campaign(
+    location_id: str,
+    campaign_id: str,
+    campaign_name: str,
+    subject_line: str,
+    send_at: str,
+    contact_list_names: list,
+    api_key: Optional[str] = None,
+    bearer_token: Optional[str] = None,
+    api_url: Optional[str] = None
+) -> dict:
+    """
+    Schedule a campaign by setting status to 'scheduled' and updating campaign details.
+    
+    Args:
+        location_id: Frederick location ID
+        campaign_id: Campaign ID to schedule
+        campaign_name: Campaign name
+        subject_line: Email subject line
+        send_at: ISO 8601 datetime string (e.g., "2025-11-27T14:30:00+05:30")
+        contact_list_names: List of contact list display names (not IDs)
+        api_key: Frederick API key (optional, uses env var if not provided)
+        bearer_token: Frederick bearer token (optional, uses env var if not provided)
+        api_url: Frederick API base URL (optional, uses env var if not provided)
+    
+    Returns:
+        Dictionary with scheduled campaign data or error information.
+        On success: {"success": True, "data": {...}, "message": "..."}
+        On error: {"error": "...", "message": "...", "status_code": ...}
+    """
+    _api_key = api_key or FREDERICK_API_KEY
+    _bearer_token = bearer_token or FREDERICK_BEARER_TOKEN
+    _api_base = api_url or FREDERICK_API_BASE
+    
+    if not _api_key:
+        return {
+            "error": "FREDERICK_API_KEY not configured",
+            "message": "Please provide api_key parameter or set FREDERICK_API_KEY in .env file"
+        }
+    
+    if not _bearer_token:
+        return {
+            "error": "FREDERICK_BEARER_TOKEN not configured",
+            "message": "Please provide bearer_token parameter or set FREDERICK_BEARER_TOKEN in .env file"
+        }
+    
+    # Ensure URL has /v2 path if not already present
+    if not _api_base.endswith('/v2'):
+        _api_base = f"{_api_base}/v2"
+    
+    url = f"{_api_base}/locations/{location_id}/campaigns/{campaign_id}"
+    
+    headers = {
+        "accept": "application/vnd.api+json",
+        "content-type": "application/vnd.api+json",
+        "authorization": f"Bearer {_bearer_token}",
+        "x-api-key": _api_key,
+        "user-agent": "Frederick-Campaign-Generator/1.0"
+    }
+    
+    # Construct request body matching the working curl format
+    # Status must be 'scheduled' to move from draft
+    # Contact lists are 'name' attribute values (not 'display_name') in attributes
+    payload = {
+        "data": {
+            "type": "campaigns",
+            "attributes": {
+                "contact_lists": contact_list_names,
+                "custom_html_template": True,
+                "name": campaign_name,
+                "send_at": send_at,
+                "shared_to_location_ids": [],
+                "status": "scheduled",
+                "subject_line": subject_line
+            },
+            "id": campaign_id
+        },
+        "meta": None
+    }
+    print(f"[SCHEDULE_CAMPAIGN] Payload: {payload}")
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.patch(url, headers=headers, json=payload, timeout=30.0)
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                "success": True,
+                "data": data.get("data", {}),
+                "message": f"Campaign scheduled successfully for {send_at}"
+            }
+            
+    except httpx.HTTPStatusError as e:
+        print(f"[SCHEDULE_CAMPAIGN] HTTP error: {e}")
+        return {
+            "error": "HTTP error",
+            "status_code": e.response.status_code,
+            "message": str(e),
+            "response": e.response.text
+        }
+    except httpx.RequestError as e:
+        print(f"[SCHEDULE_CAMPAIGN] Request error: {e}")
+        return {
+            "error": "Request error",
+            "message": str(e)
+        }
+    except Exception as e:
+        print(f"[SCHEDULE_CAMPAIGN] Exception: {e}")
+        return {
+            "error": "Unexpected error",
+            "message": str(e)
+        }
+
+
+@mcp.tool()
 async def create_email_document(
     location_id: str,
     campaign_id: str,

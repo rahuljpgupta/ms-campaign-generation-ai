@@ -10,6 +10,7 @@ from . import websocket_nodes
 from . import review_smart_list_nodes
 from . import retry_smart_list_nodes
 from . import review_email_template_nodes
+from . import schedule_confirmation_nodes
 
 
 def build_websocket_workflow(llm, send_message):
@@ -76,6 +77,18 @@ def build_websocket_workflow(llm, send_message):
     workflow.add_node(
         "process_email_changes",
         lambda state: review_email_template_nodes.process_email_changes_ws(state, llm, send_message)
+    )
+    workflow.add_node(
+        "confirm_schedule",
+        lambda state: schedule_confirmation_nodes.confirm_schedule_ws(state, send_message)
+    )
+    workflow.add_node(
+        "process_schedule_changes",
+        lambda state: schedule_confirmation_nodes.process_schedule_changes_ws(state, llm, send_message)
+    )
+    workflow.add_node(
+        "schedule_campaign",
+        lambda state: schedule_confirmation_nodes.schedule_campaign_ws(state, send_message)
     )
     workflow.add_node("end_for_now", lambda state: {"current_step": "completed"})
     
@@ -175,18 +188,36 @@ def build_websocket_workflow(llm, send_message):
     # After processing changes, go back to review
     workflow.add_edge("process_smart_list_changes", "review_smart_list")
     
-    # After email review, either process changes or finish
+    # After email review, either process changes or confirm schedule
     workflow.add_conditional_edges(
         "review_email_template",
         lambda state: state.get("current_step", "end_for_now"),
         {
             "process_email_changes": "process_email_changes",
+            "confirm_schedule": "confirm_schedule",
             "end_for_now": "end_for_now"
         }
     )
     
     # After processing email changes, go back to review
     workflow.add_edge("process_email_changes", "review_email_template")
+    
+    # After schedule confirmation, either process changes or schedule campaign
+    workflow.add_conditional_edges(
+        "confirm_schedule",
+        lambda state: state.get("current_step", "end_for_now"),
+        {
+            "process_schedule_changes": "process_schedule_changes",
+            "schedule_campaign": "schedule_campaign",
+            "end_for_now": "end_for_now"
+        }
+    )
+    
+    # After processing schedule changes, go back to confirmation
+    workflow.add_edge("process_schedule_changes", "confirm_schedule")
+    
+    # After scheduling campaign, end
+    workflow.add_edge("schedule_campaign", "end_for_now")
     
     workflow.add_edge("end_for_now", END)
     

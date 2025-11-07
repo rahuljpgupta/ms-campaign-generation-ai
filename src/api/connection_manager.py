@@ -42,7 +42,7 @@ class ConnectionManager:
             del self.client_locations[client_id]
         if client_id in self.client_credentials:
             del self.client_credentials[client_id]
-        print(f"Client {client_id} disconnected")
+            print(f"Client {client_id} disconnected")
     
     async def send_message(self, client_id: str, message: dict):
         """

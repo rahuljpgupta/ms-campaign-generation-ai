@@ -112,6 +112,7 @@ class WorkflowExecutor:
             "template": "",
             "datetime": "",
             "location_id": location_id,
+            "location": location or {},  # Store full location object for timezone and other data
             "smart_list_id": "",
             "smart_list_name": "",
             "create_new_list": False,
@@ -181,7 +182,11 @@ class WorkflowExecutor:
         if current_state["current_step"] == "review_email_template":
             await self._review_email_template(current_state, send_msg, location, credentials)
         
-        # Step 7: Show final summary or cancellation
+        # Step 7: Confirm and schedule campaign
+        if current_state["current_step"] == "confirm_schedule":
+            await self._confirm_schedule(current_state, send_msg, credentials)
+        
+        # Step 8: Show final summary or cancellation
         await self._show_final_result(current_state, send_msg, client_id)
     
     async def _parse_prompt_step(self, state, send_msg, location: dict = None):
@@ -403,6 +408,33 @@ class WorkflowExecutor:
                 break
         
         print(f"[Email Review Loop] Exiting review loop with current_step: {state['current_step']}")
+    
+    async def _confirm_schedule(self, state, send_msg, credentials: dict = None):
+        """Handle schedule confirmation - ask for user confirmation or changes"""
+        from .schedule_confirmation_nodes import confirm_schedule_ws, process_schedule_changes_ws, schedule_campaign_ws
+        
+        # Ask for confirmation
+        confirm_result = await confirm_schedule_ws(state, send_msg)
+        state.update(confirm_result)
+        
+        # Keep looping while user wants changes
+        while state["current_step"] == "process_schedule_changes":
+            change_result = await process_schedule_changes_ws(state, self.llm, send_msg)
+            state.update(change_result)
+            
+            # After processing changes, it goes back to confirm_schedule
+            # Ask for confirmation again
+            if state["current_step"] == "confirm_schedule":
+                confirm_result = await confirm_schedule_ws(state, send_msg)
+                state.update(confirm_result)
+                # Loop continues if user wants more changes
+            else:
+                break
+        
+        # If user confirmed, schedule the campaign
+        if state["current_step"] == "schedule_campaign":
+            schedule_result = await schedule_campaign_ws(state, send_msg, credentials)
+            state.update(schedule_result)
     
     async def _show_final_result(self, state, send_msg, client_id):
         """Show final summary or cancellation message"""

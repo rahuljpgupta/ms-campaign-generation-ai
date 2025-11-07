@@ -328,9 +328,10 @@ If the requested changes are not possible, return:
             }
         
         # Extract the updated name from the API response
+        # Use 'name' attribute (not 'display_name') as it's required for campaign scheduling API
         updated_data = update_result.get("data", {})
         if isinstance(updated_data, dict):
-            response_name = updated_data.get("attributes", {}).get("display_name", updated_name)
+            response_name = updated_data.get("attributes", {}).get("name", updated_name)
             if response_name:
                 updated_name = response_name
         

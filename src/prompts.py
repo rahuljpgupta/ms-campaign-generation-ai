@@ -17,7 +17,7 @@ LOCATION CONTEXT:
 Extract the following information from the user's campaign prompt:
 1. AUDIENCE: Who should receive this campaign (location, demographics, behavior, past interactions, etc.)
 2. TEMPLATE: A short description of the campaign email content. 
-3. DATETIME: When should the campaign be sent (date and time). Convert relative dates (like "Black Friday", "next Monday", "in 2 weeks") to specific dates based on today's date.
+3. DATETIME: When should the campaign be sent (date and time in ISO 8601 format with timezone offset, e.g., "2025-11-28T14:15:00+05:30"). Convert relative dates (like "Black Friday", "next Monday", "in 2 weeks") to specific dates based on today's date. Use the location's timezone from the context above.
 4. MISSING_INFO: What critical information is missing or ambiguous. Do not ask low level details of the email template. We'll handle that later.
 
 IMPORTANT: 
@@ -35,7 +35,7 @@ Return the result in JSON format matching this structure:
 {{
     "audience": "description of target audience",
     "template": "description of campaign content and offer",
-    "datetime": "scheduled date and time",
+    "datetime": "YYYY-MM-DDTHH:MM:SS+TZ:TZ (ISO 8601 format with location's timezone offset)",
     "smart_list_name": "AI - [short 2-8 word description of the audience]",
     "missing_info": ["list of up to 3 most critical missing items"]
 }}"""),
@@ -69,12 +69,13 @@ IMPORTANT:
 - If sufficient information is available, proceed even if some details could be more specific
 - Convert relative dates (like "Black Friday", "next Monday", "in 2 weeks") to specific dates based on today's date
 - Generate a short smart list name (2-8 words max) that describes the audience. The name should start with "AI - "
+- DateTime must be in ISO 8601 format with timezone offset (e.g., "2025-11-28T14:15:00+05:30"). Use the location's timezone from the context above.
 
 Return the result in JSON format:
 {{
     "audience": "updated audience description",
     "template": "updated template/content description",
-    "datetime": "updated or confirmed datetime",
+    "datetime": "YYYY-MM-DDTHH:MM:SS+TZ:TZ (ISO 8601 format with location's timezone offset)",
     "smart_list_name": "AI - [short 2-8 word description of the audience]",
     "missing_info": ["up to 5 most critical remaining items, empty list if sufficient info"]
 }}"""),

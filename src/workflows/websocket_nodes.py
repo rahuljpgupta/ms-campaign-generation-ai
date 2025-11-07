@@ -605,12 +605,16 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
             for smart_list in result.get("data", []):
                 list_id = smart_list.get("id")
                 attrs = smart_list.get("attributes", {})
-                display_name = attrs.get("display_name", "")
+                # Use 'name' attribute (not 'display_name') as it's required for campaign scheduling API
+                name = attrs.get("name", "")
+                display_name = attrs.get("display_name", name)  # For display purposes
                 
-                if display_name and search_name in display_name.lower():
+                # Search in both name and display_name for better UX
+                if (name and search_name in name.lower()) or (display_name and search_name in display_name.lower()):
                     matches.append({
                         "id": list_id,
-                        "name": display_name
+                        "name": name,  # Store 'name' for campaign scheduling
+                        "display_name": display_name  # Keep for display
                     })
             
             # Handle different scenarios
@@ -633,13 +637,13 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
                 selected = matches[0]
                 await send_message({
                     "type": "assistant",
-                    "message": f"✓ Found your smart list: **{selected['name']}**",
+                    "message": f"✓ Found your smart list: **{selected.get('display_name', selected['name'])}**",
                     "timestamp": asyncio.get_event_loop().time(),
                     "disable_input": False
                 })
                 return {
                     "smart_list_id": selected["id"],
-                    "smart_list_name": selected["name"],
+                    "smart_list_name": selected["name"],  # Use 'name' for campaign scheduling API
                     "create_new_list": False,
                     "manual_list": True,
                     "current_step": "create_campaign"
@@ -652,7 +656,7 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
                 options = []
                 for idx, match in enumerate(matches, 1):
                     options.append({
-                        "text": match["name"],
+                        "text": match.get("display_name", match["name"]),  # Show display_name to user
                         "value": match["id"]
                     })
                 
@@ -676,13 +680,13 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
                 if selected_list:
                     await send_message({
                         "type": "assistant",
-                        "message": f"✓ Using smart list: **{selected_list['name']}**",
+                        "message": f"✓ Using smart list: **{selected_list.get('display_name', selected_list['name'])}**",
                         "timestamp": asyncio.get_event_loop().time(),
                         "disable_input": False
                     })
                     return {
                         "smart_list_id": selected_list["id"],
-                        "smart_list_name": selected_list["name"],
+                        "smart_list_name": selected_list["name"],  # Use 'name' for campaign scheduling API
                         "create_new_list": False,
                         "manual_list": True,
                         "current_step": "create_campaign"
@@ -896,8 +900,8 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
         # Extract smart list details
         smart_list_data = result.get("data", {})
         smart_list_id = smart_list_data.get("id", "")
-        # Use display_name from attributes, fallback to the one we sent
-        smart_list_name = smart_list_data.get("attributes", {}).get("display_name", display_name)
+        # Use 'name' attribute (not 'display_name') as it's required for campaign scheduling API
+        smart_list_name = smart_list_data.get("attributes", {}).get("name", display_name)
         
         await send_message({
             "type": "assistant",
