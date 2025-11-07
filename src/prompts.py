@@ -278,32 +278,42 @@ Generate three components for this email campaign:
    - Encourages opens
    - Relates to the campaign brief
 
-3. **HTML Email Template**: A complete HTML email that:
+3. **HTML Email Template**: A complete, valid HTML email that:
    - **Preserves the brand identity**: Match the writing style, tone, and language from reference templates
-   - **Follows the structure**: Use similar layout patterns (header, hero, content blocks, CTA, footer)
+   - **Follows the structure**: Use similar layout patterns (header, hero, content blocks, CTA, footer) from reference templates
+   - **Includes meaningful, engaging content in the email body** - not just structure, but actual relevant content
+   - **Start with a greeting** to the customer
+   - **Use existing branding elements**: Extract and use logos, brand colors, fonts, and images from reference templates
+   - **Must use existing images from the context** - Do not generate new images, use image URLs from reference templates
    - **Includes all standard elements**:
      - Unsubscribe link: Must include at the bottom - No longer want these emails? <a href="{{{{unsubscribe_link}}}}" target="_blank">Unsubscribe</a>
      - Company name and address (from location context)
      - Social media links (only use valid links provided above)
+     - Multiple content blocks: text block, image+text block, and social links block at the end
    - **Adapts the content**: Tailor the message to match the campaign brief
-   - Must not use any dynamic content like {{{{customer.first_name}}}}, {{{{offering.name}}}}, etc.
+   - **Must NOT use any template variables** like {{{{customer.first_name}}}}, {{{{offering.name}}}}, etc.
    - **Maintains visual consistency**: Keep logos, brand colors, fonts that appear in reference templates
    - **Is mobile-responsive**: Use standard email-safe HTML and inline CSS
 
 IMPORTANT GUIDELINES:
-- Use inline CSS for all styling
-- Keep images as placeholders or reference existing image URLs from templates
-- Include standard email tags like <meta> for mobile responsiveness
+- Generate ONLY valid HTML email code (no markdown, no explanations)
+- Use inline CSS for all styling to ensure compatibility across email clients
+- Must use existing images from reference templates - do not create new image URLs
+- Include meaningful, engaging content that matches the campaign request
+- Make the email responsive and professional
+- Include a clear call-to-action
+- Use professional email styling with proper spacing, colors, and typography
 - DO NOT add markdown formatting in HTML
 - ALWAYS include the unsubscribe link: <a href="{{{{unsubscribe_link}}}}">Unsubscribe</a>
 - Use only the social links provided in SOCIAL PROFILE LINKS section
 - **Keep the email sanitised**: Do not include unsafe tags like Script, iframe etc.
+- Must NOT add any template variable in the generated HTML
 
 Return your response in the following JSON format:
 {{{{
   "campaign_name": "Your campaign name here",
   "subject_line": "Your subject line here",
-  "html": "Complete HTML template here (<!doctype html> to </html>)"
+  "html": "Complete HTML template here"
 }}}}
 
 Return ONLY valid JSON, no other text or explanations."""),
@@ -324,20 +334,26 @@ USER'S CHANGE REQUEST:
 {{user_feedback}}
 
 TASK:
-Update the email HTML based on the user's feedback while:
-1. **Preserving the overall structure and brand identity**
-2. **Making only the requested changes**
-3. **Keeping all required elements**: unsubscribe link, company info, etc.
-4. **Maintaining mobile responsiveness**
-5. **Using inline CSS for all styling**
+Update the provided existing email HTML based on the user's specific change request.
+
+REQUIREMENTS:
+1. **Preserve the overall structure and branding** of the existing email
+2. **Make ONLY the changes requested by the user** - do not make unnecessary modifications
+3. **Maintain proper HTML structure and inline CSS**
+4. **Keep existing styling, colors, fonts, and layout** unless specifically asked to change them
+5. **Ensure the updated email remains professional and email-client compatible**
+6. **Generate ONLY valid HTML email code** (no markdown, no explanations)
+7. **If updating content, make it engaging and relevant**
+8. **Preserve any existing images, logos, or branding elements** unless asked to change them
+9. **Maintain mobile responsiveness**
 
 CRITICAL REQUIREMENTS:
-- Keep the doctype, html structure, and meta tags
 - ALWAYS include the unsubscribe link: <a href="{{{{unsubscribe_link}}}}" target="_blank">Unsubscribe</a>
-- Do NOT use dynamic content like {{{{customer.first_name}}}}
+- Must NOT add any template variables like {{{{customer.first_name}}}}, {{{{offering.name}}}}, etc.
 - Do NOT include unsafe tags like Script, iframe
-- Use inline CSS only
+- Use inline CSS only for all styling to ensure compatibility across email clients
+- Keep all required elements: unsubscribe link, company info, social links
 
-Return ONLY the complete updated HTML (from <!doctype html> to </html>), no explanations or markdown formatting."""),
+Return ONLY the complete updated HTML, no explanations or markdown formatting."""),
     ("human", "Update the email template now based on the user's request.")
 ])

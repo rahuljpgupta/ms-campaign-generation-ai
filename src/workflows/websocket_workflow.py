@@ -71,6 +71,14 @@ def build_websocket_workflow(llm, send_message):
         lambda state: review_smart_list_nodes.process_smart_list_changes_ws(state, llm, send_message)
     )
     workflow.add_node(
+        "create_campaign",
+        lambda state: websocket_nodes.create_campaign_ws(
+            state, llm, send_message, 
+            location=state.get("location", {}),
+            credentials=None  # Credentials not stored in state, passed separately by executor
+        )
+    )
+    workflow.add_node(
         "review_email_template",
         lambda state: review_email_template_nodes.ask_for_email_review_ws(state, send_message)
     )
@@ -126,13 +134,13 @@ def build_websocket_workflow(llm, send_message):
         }
     )
     
-    # After smart list selection/confirmation, route to FredQL generation or end
+    # After smart list selection/confirmation, route to create campaign
     workflow.add_conditional_edges(
         "confirm_smart_list_selection",
         lambda state: state.get("current_step", "end_for_now"),
         {
             "generate_fredql": "generate_fredql",
-            "complete_selection": "end_for_now",
+            "create_campaign": "create_campaign",
             "end_for_now": "end_for_now"
         }
     )
@@ -171,8 +179,15 @@ def build_websocket_workflow(llm, send_message):
     # After retry, regenerate FredQL with new description
     workflow.add_edge("retry_smart_list_creation", "generate_fredql")
     
-    # After manual list name, end
-    workflow.add_edge("handle_manual_list_name", "end_for_now")
+    # After manual list name, create campaign
+    workflow.add_conditional_edges(
+        "handle_manual_list_name",
+        lambda state: state.get("current_step", "end_for_now"),
+        {
+            "create_campaign": "create_campaign",
+            "end_for_now": "end_for_now"
+        }
+    )
     
     # After review, either process changes or create campaign
     workflow.add_conditional_edges(
@@ -180,13 +195,16 @@ def build_websocket_workflow(llm, send_message):
         lambda state: state.get("current_step", "end_for_now"),
         {
             "process_smart_list_changes": "process_smart_list_changes",
-            "create_campaign": "end_for_now",  # Will be handled by executor
+            "create_campaign": "create_campaign",
             "end_for_now": "end_for_now"
         }
     )
     
     # After processing changes, go back to review
     workflow.add_edge("process_smart_list_changes", "review_smart_list")
+    
+    # After creating campaign, go to email review
+    workflow.add_edge("create_campaign", "review_email_template")
     
     # After email review, either process changes or confirm schedule
     workflow.add_conditional_edges(

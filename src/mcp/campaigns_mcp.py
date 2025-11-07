@@ -207,7 +207,7 @@ async def schedule_campaign(
         },
         "meta": None
     }
-    print(f"[SCHEDULE_CAMPAIGN] Payload: {payload}")
+    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.patch(url, headers=headers, json=payload, timeout=30.0)
@@ -221,7 +221,6 @@ async def schedule_campaign(
             }
             
     except httpx.HTTPStatusError as e:
-        print(f"[SCHEDULE_CAMPAIGN] HTTP error: {e}")
         return {
             "error": "HTTP error",
             "status_code": e.response.status_code,
@@ -229,13 +228,11 @@ async def schedule_campaign(
             "response": e.response.text
         }
     except httpx.RequestError as e:
-        print(f"[SCHEDULE_CAMPAIGN] Request error: {e}")
         return {
             "error": "Request error",
             "message": str(e)
         }
     except Exception as e:
-        print(f"[SCHEDULE_CAMPAIGN] Exception: {e}")
         return {
             "error": "Unexpected error",
             "message": str(e)

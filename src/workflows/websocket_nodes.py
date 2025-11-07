@@ -1111,6 +1111,7 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
                 campaign_name = f"AI - {smart_list_name.replace('AI - ', '')} - {datetime.now().strftime('%b %d, %Y at %I:%M %p')}"
             if not subject_line:
                 subject_line = f"News from {business_name}"
+            
             if not email_html:
                 await send_message({
                     "type": "error",

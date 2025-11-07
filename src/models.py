@@ -22,6 +22,7 @@ class CampaignState(TypedDict):
     template: str
     datetime: str
     location_id: str  # Frederick location ID
+    location: dict  # Full location object with timezone, name, etc.
     smart_list_id: str
     smart_list_name: str
     create_new_list: bool  # Whether to create new list or use existing
