@@ -26,9 +26,13 @@ IMPORTANT:
 - We are working with a single location/studio. Do not ask about multiple locations.
 - Prioritize: audience criteria > datetime specifics > one line description of the campaign email content
 - Do not ask offer/discount details. Also do not ask about sender details. We'll handle that later.
-- location details like name, timezone, address are provided via Location context. Do not ask such questions.
+- location/sender details like name, timezone, address are provided via Location context. Do not ask such questions.
 - If any component is not clearly specified, note it in missing_info
 - Use the current date provided to calculate specific dates for holidays and relative dates
+- Assume the system separately handles the recipent's opt-in status. We don't need to ask about it.
+- Assume the campaign send timezone is always the location's timezone.
+- Do not ask about desired subject line and preheader text. We'll handle that later.
+- Do not ask about the existence of smart list filters. We'll handle that later.
 - Generate a short smart list name (2-8 words max) that describes the audience. The name should start with "AI - "
 
 Return the result in JSON format matching this structure:
@@ -67,6 +71,10 @@ IMPORTANT:
 - Make reasonable assumptions for minor details
 - We are working with a single location/studio. Do not ask about multiple locations.
 - If sufficient information is available, proceed even if some details could be more specific
+- Assume the system separately handles the recipent's opt-in status. We don't need to ask about it.
+- Assume the campaign send timezone is always the location's timezone.
+- Do not ask about desired subject line and preheader text. We'll handle that later.
+- Do not ask about the existence of smart list filters. We'll handle that later.
 - Convert relative dates (like "Black Friday", "next Monday", "in 2 weeks") to specific dates based on today's date
 - Generate a short smart list name (2-8 words max) that describes the audience. The name should start with "AI - "
 - DateTime must be in ISO 8601 format with timezone offset (e.g., "2025-11-28T14:15:00+05:30"). Use the location's timezone from the context above.
@@ -77,7 +85,7 @@ Return the result in JSON format:
     "template": "updated template/content description",
     "datetime": "YYYY-MM-DDTHH:MM:SS+TZ:TZ (ISO 8601 format with location's timezone offset)",
     "smart_list_name": "AI - [short 2-8 word description of the audience]",
-    "missing_info": ["up to 5 most critical remaining items, empty list if sufficient info"]
+    "missing_info": ["up to 3 most critical remaining items, empty list if sufficient info"]
 }}"""),
     ("human", "Update the campaign based on the clarifications provided.")
 ])
@@ -256,7 +264,7 @@ CAMPAIGN BRIEF:
 {campaign_description}
 
 REFERENCE TEMPLATES:
-Below are 5 recent email templates from this business. Study them carefully to understand:
+Below are some recent email templates from this business. Study them carefully to understand:
 - Brand voice and writing style
 - Typical structure and layout patterns
 - Image usage and placement
@@ -280,16 +288,19 @@ Generate three components for this email campaign:
 
 3. **HTML Email Template**: A complete, valid HTML email that:
    - **Preserves the brand identity**: Match the writing style, tone, and language from reference templates
-   - **Follows the structure**: Use similar layout patterns (header, hero, content blocks, CTA, footer) from reference templates
+   - **Follows the structure**: Use similar layout patterns (header, content blocks, CTA, footer) from reference templates
    - **Includes meaningful, engaging content in the email body** - not just structure, but actual relevant content
    - **Start with a greeting** to the customer
    - **Use existing branding elements**: Extract and use logos, brand colors, fonts, and images from reference templates
-   - **Must use existing images from the context** - Do not generate new images, use image URLs from reference templates
    - **Includes all standard elements**:
      - Unsubscribe link: Must include at the bottom - No longer want these emails? <a href="{{{{unsubscribe_link}}}}" target="_blank">Unsubscribe</a>
      - Company name and address (from location context)
-     - Social media links (only use valid links provided above)
-     - Multiple content blocks: text block, image+text block, and social links block at the end
+     - Social media links must be used from SOCIAL PROFILE LINKS section and not from the existing email templates
+     - Must include all the social media links from the SOCIAL PROFILE LINKS section
+     - If no social media links are provided, do not include the social links block at the end
+     - Use the social links icons from the SOCIAL PROFILE LINKS section which are provided as image_url and add respective url.
+     - Multiple content blocks: Feel free to add any of text blocks, image+text blocks, video+text blocks, and social links block at the end
+     - Create medium size email template which has around 300-500 words of content
    - **Adapts the content**: Tailor the message to match the campaign brief
    - **Must NOT use any template variables** like {{{{customer.first_name}}}}, {{{{offering.name}}}}, etc.
    - **Maintains visual consistency**: Keep logos, brand colors, fonts that appear in reference templates
@@ -297,8 +308,7 @@ Generate three components for this email campaign:
 
 IMPORTANT GUIDELINES:
 - Generate ONLY valid HTML email code (no markdown, no explanations)
-- Use inline CSS for all styling to ensure compatibility across email clients
-- Must use existing images from reference templates - do not create new image URLs
+- Use only inline CSS for all styling to ensure compatibility across email clients
 - Include meaningful, engaging content that matches the campaign request
 - Make the email responsive and professional
 - Include a clear call-to-action
@@ -353,6 +363,12 @@ CRITICAL REQUIREMENTS:
 - Do NOT include unsafe tags like Script, iframe
 - Use inline CSS only for all styling to ensure compatibility across email clients
 - Keep all required elements: unsubscribe link, company info, social links
+- Social media links must be used from SOCIAL PROFILE LINKS section and not from the existing email templates
+- Must include all the social media links from the SOCIAL PROFILE LINKS section
+- If no social media links are provided, do not include the social links block at the end
+- Use the social links icons from the SOCIAL PROFILE LINKS section which are provided as image_url and add respective url.
+- Multiple content blocks: Feel free to add any of text blocks, image+text blocks, video+text blocks, and social links block at the end
+- Create medium size email template which has around 300-500 words of content
 
 Return ONLY the complete updated HTML, no explanations or markdown formatting."""),
     ("human", "Update the email template now based on the user's request.")
