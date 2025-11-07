@@ -226,6 +226,107 @@ async def create_email_document(
 
 
 @mcp.tool()
+async def update_email_document(
+    location_id: str,
+    email_document_id: str,
+    html: str,
+    document: str = "{}",
+    api_key: Optional[str] = None,
+    bearer_token: Optional[str] = None,
+    api_url: Optional[str] = None
+) -> dict:
+    """
+    Update an existing email document.
+    
+    Args:
+        location_id: Frederick location ID
+        email_document_id: Email document ID to update
+        html: Updated HTML content for the email
+        document: JSON document structure (default: "{}")
+        api_key: Frederick API key (optional, uses env var if not provided)
+        bearer_token: Frederick bearer token (optional, uses env var if not provided)
+        api_url: Frederick API base URL (optional, uses env var if not provided)
+    
+    Returns:
+        Dictionary with updated email document data or error information.
+        On success: {"success": True, "data": {...}, "message": "..."}
+        On error: {"error": "...", "message": "...", "status_code": ...}
+    """
+    _api_key = api_key or FREDERICK_API_KEY
+    _bearer_token = bearer_token or FREDERICK_BEARER_TOKEN
+    _api_base = api_url or FREDERICK_API_BASE
+    
+    if not _api_key:
+        return {
+            "error": "FREDERICK_API_KEY not configured",
+            "message": "Please provide api_key parameter or set FREDERICK_API_KEY in .env file"
+        }
+    
+    if not _bearer_token:
+        return {
+            "error": "FREDERICK_BEARER_TOKEN not configured",
+            "message": "Please provide bearer_token parameter or set FREDERICK_BEARER_TOKEN in .env file"
+        }
+    
+    # Ensure URL has /v2 path if not already present
+    if not _api_base.endswith('/v2'):
+        _api_base = f"{_api_base}/v2"
+    
+    url = f"{_api_base}/locations/{location_id}/email_documents/{email_document_id}"
+    
+    headers = {
+        "accept": "application/vnd.api+json",
+        "content-type": "application/vnd.api+json",
+        "authorization": f"Bearer {_bearer_token}",
+        "x-api-key": _api_key,
+        "user-agent": "Frederick-Campaign-Generator/1.0"
+    }
+    
+    # Construct request body following JSON:API specification
+    payload = {
+        "data": {
+            "type": "email_documents",
+            "attributes": {
+                "html": html,
+                "document": document
+            },
+            "id": email_document_id
+        },
+        "meta": None
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.patch(url, headers=headers, json=payload, timeout=30.0)
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                "success": True,
+                "data": data.get("data", {}),
+                "message": f"Email document updated successfully"
+            }
+            
+    except httpx.HTTPStatusError as e:
+        return {
+            "error": "HTTP error",
+            "status_code": e.response.status_code,
+            "message": str(e),
+            "response": e.response.text
+        }
+    except httpx.RequestError as e:
+        return {
+            "error": "Request error",
+            "message": str(e)
+        }
+    except Exception as e:
+        return {
+            "error": "Unexpected error",
+            "message": str(e)
+        }
+
+
+@mcp.tool()
 async def get_social_profile_links(
     source_platform: Optional[str] = None,
     source_location_id: Optional[str] = None,

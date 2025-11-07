@@ -177,7 +177,11 @@ class WorkflowExecutor:
         # Step 5: Create campaign and generate email template
         await self._create_campaign_step(current_state, send_msg, location, credentials)
         
-        # Step 6: Show final summary or cancellation
+        # Step 6: Review and refine email template
+        if current_state["current_step"] == "review_email_template":
+            await self._review_email_template(current_state, send_msg, location, credentials)
+        
+        # Step 7: Show final summary or cancellation
         await self._show_final_result(current_state, send_msg, client_id)
     
     async def _parse_prompt_step(self, state, send_msg, location: dict = None):
@@ -368,6 +372,37 @@ class WorkflowExecutor:
         if state["current_step"] == "create_campaign":
             result = await websocket_nodes.create_campaign_ws(state, self.llm, send_msg, location, credentials)
             state.update(result)
+    
+    async def _review_email_template(self, state, send_msg, location: dict = None, credentials: dict = None):
+        """Handle email template review - ask for user feedback"""
+        from .review_email_template_nodes import ask_for_email_review_ws, process_email_changes_ws
+        
+        # Ask for review
+        print(f"[Email Review Loop] Asking for initial review...")
+        review_result = await ask_for_email_review_ws(state, send_msg)
+        state.update(review_result)
+        print(f"[Email Review Loop] User response resulted in current_step: {state['current_step']}")
+        
+        # Keep looping while user wants changes
+        while state["current_step"] == "process_email_changes":
+            print(f"[Email Review Loop] Processing changes...")
+            change_result = await process_email_changes_ws(state, self.llm, send_msg, location, credentials)
+            state.update(change_result)
+            print(f"[Email Review Loop] After processing changes, current_step: {state['current_step']}")
+            
+            # After processing changes, it goes back to review_email_template
+            # Ask for review again
+            if state["current_step"] == "review_email_template":
+                print(f"[Email Review Loop] Asking for review again after changes...")
+                review_result = await ask_for_email_review_ws(state, send_msg)
+                state.update(review_result)
+                print(f"[Email Review Loop] User response resulted in current_step: {state['current_step']}")
+                # Loop continues if user wants more changes
+            else:
+                print(f"[Email Review Loop] Breaking loop, current_step is: {state['current_step']}")
+                break
+        
+        print(f"[Email Review Loop] Exiting review loop with current_step: {state['current_step']}")
     
     async def _show_final_result(self, state, send_msg, client_id):
         """Show final summary or cancellation message"""

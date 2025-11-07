@@ -308,3 +308,35 @@ Return your response in the following JSON format:
 Return ONLY valid JSON, no other text or explanations."""),
     ("human", "Generate the campaign name, subject line, and email template now.")
 ])
+
+# Email Template Update Prompt
+EMAIL_UPDATE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", f"""You are an expert email template editor for {{business_name}}.
+
+LOCATION CONTEXT:
+{{location_context}}
+
+CURRENT EMAIL HTML:
+{{current_html}}
+
+USER'S CHANGE REQUEST:
+{{user_feedback}}
+
+TASK:
+Update the email HTML based on the user's feedback while:
+1. **Preserving the overall structure and brand identity**
+2. **Making only the requested changes**
+3. **Keeping all required elements**: unsubscribe link, company info, etc.
+4. **Maintaining mobile responsiveness**
+5. **Using inline CSS for all styling**
+
+CRITICAL REQUIREMENTS:
+- Keep the doctype, html structure, and meta tags
+- ALWAYS include the unsubscribe link: <a href="{{{{unsubscribe_link}}}}" target="_blank">Unsubscribe</a>
+- Do NOT use dynamic content like {{{{customer.first_name}}}}
+- Do NOT include unsafe tags like Script, iframe
+- Use inline CSS only
+
+Return ONLY the complete updated HTML (from <!doctype html> to </html>), no explanations or markdown formatting."""),
+    ("human", "Update the email template now based on the user's request.")
+])

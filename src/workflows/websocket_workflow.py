@@ -9,6 +9,7 @@ from ..nodes import parse_prompt, process_clarifications, route_after_clarificat
 from . import websocket_nodes
 from . import review_smart_list_nodes
 from . import retry_smart_list_nodes
+from . import review_email_template_nodes
 
 
 def build_websocket_workflow(llm, send_message):
@@ -67,6 +68,14 @@ def build_websocket_workflow(llm, send_message):
     workflow.add_node(
         "process_smart_list_changes",
         lambda state: review_smart_list_nodes.process_smart_list_changes_ws(state, llm, send_message)
+    )
+    workflow.add_node(
+        "review_email_template",
+        lambda state: review_email_template_nodes.ask_for_email_review_ws(state, send_message)
+    )
+    workflow.add_node(
+        "process_email_changes",
+        lambda state: review_email_template_nodes.process_email_changes_ws(state, llm, send_message)
     )
     workflow.add_node("end_for_now", lambda state: {"current_step": "completed"})
     
@@ -152,18 +161,32 @@ def build_websocket_workflow(llm, send_message):
     # After manual list name, end
     workflow.add_edge("handle_manual_list_name", "end_for_now")
     
-    # After review, either end or process changes
+    # After review, either process changes or create campaign
     workflow.add_conditional_edges(
         "review_smart_list",
         lambda state: state.get("current_step", "end_for_now"),
         {
             "process_smart_list_changes": "process_smart_list_changes",
+            "create_campaign": "end_for_now",  # Will be handled by executor
             "end_for_now": "end_for_now"
         }
     )
     
     # After processing changes, go back to review
     workflow.add_edge("process_smart_list_changes", "review_smart_list")
+    
+    # After email review, either process changes or finish
+    workflow.add_conditional_edges(
+        "review_email_template",
+        lambda state: state.get("current_step", "end_for_now"),
+        {
+            "process_email_changes": "process_email_changes",
+            "end_for_now": "end_for_now"
+        }
+    )
+    
+    # After processing email changes, go back to review
+    workflow.add_edge("process_email_changes", "review_email_template")
     
     workflow.add_edge("end_for_now", END)
     

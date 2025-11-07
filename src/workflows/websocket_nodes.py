@@ -1229,7 +1229,8 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             "subject_line": subject_line,
             "email_document_id": email_document_id,
             "email_html": email_html,
-            "current_step": "end_for_now"
+            "email_update_count": 0,
+            "current_step": "review_email_template"
         }
         
     except Exception as e:
