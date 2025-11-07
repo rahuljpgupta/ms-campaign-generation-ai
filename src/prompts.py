@@ -270,7 +270,7 @@ Below are 5 recent email templates from this business. Study them carefully to u
 TASK:
 Generate three components for this email campaign:
 
-1. **Campaign Name**: A descriptive internal name for this campaign (e.g., "Spring Sale - March 2024", "New Member Welcome")
+1. **Campaign Name**: A descriptive internal name for this campaign starting with "AI - " (e.g., "AI - Spring Sale - March 2024", "AI - New Member Welcome")
 
 2. **Subject Line**: An engaging email subject line that:
    - Matches the brand's tone from reference templates

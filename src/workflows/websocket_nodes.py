@@ -1101,6 +1101,10 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             subject_line = email_data.get("subject_line", "")
             email_html = email_data.get("html", "")
             
+            # Ensure campaign name starts with "AI - "
+            if campaign_name and not campaign_name.startswith("AI - "):
+                campaign_name = f"AI - {campaign_name}"
+            
             # Fallback to defaults if any field is missing
             if not campaign_name:
                 from datetime import datetime

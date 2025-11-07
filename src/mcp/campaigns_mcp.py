@@ -81,12 +81,15 @@ async def create_campaign(
     }
     
     # Construct request body following JSON:API specification
+    # Ensure campaign name starts with "AI - " but avoid duplicates
+    campaign_name = name if name.startswith("AI - ") else f"AI - {name}"
+    
     payload = {
         "data": {
             "type": "campaigns",
             "attributes": {
                 "custom_html_template": custom_html_template,
-                "name": f"AI - {name}",
+                "name": campaign_name,
                 "subject_line": subject_line
             }
         },

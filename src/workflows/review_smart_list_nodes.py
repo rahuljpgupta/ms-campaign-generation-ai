@@ -56,6 +56,14 @@ async def ask_for_review_ws(state: CampaignState, send_message: Callable) -> dic
     
     # Check if user wants to proceed or make changes
     if response_lower in ["yes", "good", "go ahead", "looks good", "perfect", "done", "ok", "okay"]:
+        # Close the edit smart list panel before proceeding to campaign creation
+        await send_message({
+            "type": "ui_action",
+            "action": "close_action_panel",
+            "payload": {},
+            "timestamp": asyncio.get_event_loop().time()
+        })
+        
         return {
             "current_step": "create_campaign"
         }
