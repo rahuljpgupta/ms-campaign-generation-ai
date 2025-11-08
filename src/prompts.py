@@ -266,6 +266,22 @@ CAMPAIGN BRIEF:
 PEXELS IMAGES (use 1-3 of these FREE high-quality images in your email):
 {pexels_images}
 
+MERGE TAGS (personalization/dynamic tags):
+{merge_tags}
+
+MERGE TAG USAGE:
+- **Always start emails with a personalized greeting** using {{{{contact.properties.first_name default="there"}}}} when available
+- Use other merge tags where appropriate throughout the email
+- **Use EXACT merge tag values** from the list above
+- **Format**: Wrap in double curly braces like {{{{merge_tag_value}}}}
+- Common examples:
+  * {{{{contact.properties.first_name default="there"}}}} for customer's first name
+  * {{{{location.name}}}} for business name
+  * {{{{location.address}}}} for business address
+  * {{{{location.online_booking_url}}}} for booking links
+  * {{{{location.website}}}} for website link
+  * {{{{system.unsubscribe_link}}}} for unsubscribe (required in footer)
+
 REFERENCE TEMPLATES:
 Below are some recent email templates from this business. Study them carefully to understand:
 - Brand voice and writing style
@@ -305,7 +321,7 @@ Generate three components for this email campaign:
      * **DO NOT put images after the signature/closing** - All images and CTAs must come BEFORE the closing/signature
    - **Email Structure** (MUST follow this order):
      1. Header/Logo (if applicable)
-     2. Greeting (e.g., "Hi there,")
+     2. Greeting using merge tags (e.g., "{{{{salutation}}}} {{{{first_name}}}},")
      3. Main content with images and text blocks (use creative layouts)
      4. Call-to-action button (if needed)
      5. Closing/Signature (e.g., "Warm wishes, [Business Name] Team") - **This should be the last meaningful content**
@@ -375,16 +391,34 @@ Return ONLY valid JSON, no other text or explanations."""),
 
 # Email Template Update Prompt
 EMAIL_UPDATE_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", f"""You are an expert email template editor for {{business_name}}.
+    ("system", """You are an expert email template editor for {business_name}.
 
 LOCATION CONTEXT:
-{{location_context}}
+{location_context}
+
+AVAILABLE MERGE TAGS (personalization/dynamic tags):
+{merge_tags}
+
+MERGE TAG USAGE RULES (CRITICAL):
+1. **When user requests personalization**, ADD the appropriate merge tags to the HTML
+2. **Use EXACT merge tag values** from the AVAILABLE MERGE TAGS list above
+3. **Format**: Wrap merge tags in double curly braces like {{{{merge_tag_value}}}}
+4. **Common patterns**:
+   - Contact properties: {{{{contact.properties.first_name default="there"}}}}
+   - Location properties: {{{{location.name}}}}, {{{{location.website}}}}, {{{{location.address}}}}
+   - System tags: {{{{system.unsubscribe_link}}}}
+5. **Only use merge tags that exist** in the AVAILABLE MERGE TAGS list above
+6. **If user asks for a tag that doesn't exist**, find the closest match from available tags
+7. **Examples of valid usage**:
+   - {{{{contact.properties.first_name default="there"}}}} for customer's first name
+   - {{{{location.online_booking_url}}}} for booking links
+   - {{{{location.address}}}} for business address
 
 CURRENT EMAIL HTML:
-{{current_html}}
+{current_html}
 
 USER'S CHANGE REQUEST:
-{{user_feedback}}
+{user_feedback}
 
 TASK:
 Update the provided existing email HTML based on the user's specific change request.
@@ -402,7 +436,7 @@ REQUIREMENTS:
 
 CRITICAL REQUIREMENTS:
 - ALWAYS include the unsubscribe link: <a href="{{{{unsubscribe_link}}}}" target="_blank">Unsubscribe</a>
-- Must NOT add any template variables like {{{{customer.first_name}}}}, {{{{offering.name}}}}, etc.
+- **USE merge tags from AVAILABLE MERGE TAGS section when requested by user** - these are the ONLY template variables allowed
 - Do NOT include unsafe tags like Script, iframe
 - Use inline CSS only for all styling to ensure compatibility across email clients
 - Keep all required elements: unsubscribe link, company info, social links
@@ -415,6 +449,20 @@ CRITICAL REQUIREMENTS:
 - Multiple content blocks: Feel free to add any of text blocks, image+text blocks, video+text blocks in the MAIN CONTENT area (before signature)
 - Create medium size email template which has around 300-500 words of content
 - Must not add any placeholder images. Only valid images should be added.
+
+EXAMPLE - How to add merge tags when user requests personalization:
+
+User request: "add first name to greeting"
+BEFORE: <p>Hi there,</p>
+AFTER: <p>Hi {{{{contact.properties.first_name default="there"}}}},</p>
+
+User request: "personalize the greeting with customer name"
+BEFORE: <p>Hello valued customer,</p>
+AFTER: <p>Hello {{{{contact.properties.first_name default="valued customer"}}}},</p>
+
+User request: "add our website link"
+BEFORE: <p>Visit our website for more info.</p>
+AFTER: <p>Visit <a href="{{{{location.website}}}}">our website</a> for more info.</p>
 
 Return ONLY the complete updated HTML, no explanations or markdown formatting."""),
     ("human", "Update the email template now based on the user's request.")

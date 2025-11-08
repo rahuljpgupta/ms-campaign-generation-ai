@@ -1057,7 +1057,49 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             
             reference_templates = "\n\n".join(template_texts) if template_texts else "No reference templates available. Create a clean, professional email template."
         
-        # Step 3: Fetch relevant images from Pexels
+        # Step 3: Fetch merge tags for personalization
+        from src.mcp.campaigns_mcp import get_merge_tags
+        
+        merge_tags_result = await get_merge_tags(
+            location_id,
+            api_key=credentials.get("api_key"),
+            bearer_token=credentials.get("bearer_token"),
+            api_url=credentials.get("api_url")
+        )
+        
+        if "error" in merge_tags_result:
+            merge_tags_list = []
+            merge_tags_text = "No merge tags available. Do not use any personalization tags."
+            print("[Merge Tags] Error fetching merge tags")
+        else:
+            merge_tags_data = merge_tags_result.get("data", [])
+            merge_tags_list = merge_tags_data  # Store for state
+            
+            print(f"[Merge Tags] Fetched {len(merge_tags_data)} merge tags")
+            
+            # Format merge tags for prompt
+            merge_tag_items = []
+            for tag in merge_tags_data:
+                attrs = tag.get("attributes", {})
+                tag_value = attrs.get("merge_tag_value", "")
+                display_name = attrs.get("display_name", tag_value)
+                preview_value = attrs.get("preview_value", "")
+                hidden = attrs.get("hidden", False)
+                
+                # Skip hidden tags
+                if hidden:
+                    continue
+                
+                if tag_value:
+                    tag_item = f"- **{{{{{tag_value}}}}}** ({display_name})"
+                    if preview_value:
+                        tag_item += f" - Example: {preview_value}"
+                    merge_tag_items.append(tag_item)
+            
+            merge_tags_text = "\n".join(merge_tag_items) if merge_tag_items else "No merge tags available. Do not use any personalization tags."
+            print(f"[Merge Tags] Formatted {len(merge_tag_items)} tags for prompt")
+        
+        # Step 4: Fetch relevant images from Pexels
         await send_message({
             "type": "assistant_thinking",
             "message": "Finding perfect images for your email...",
@@ -1148,14 +1190,15 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
         location_context = format_location_context(location)
         business_name = location.get("name", "Our Business")
         
-        # Prepare prompt with Pexels images
+        # Prepare prompt with Pexels images and merge tags
         email_prompt = EMAIL_TEMPLATE_GENERATION_PROMPT.format_messages(
             business_name=business_name,
             location_context=location_context,
             social_links=social_links_text,
             campaign_description=campaign_description,
             reference_templates=reference_templates,
-            pexels_images=images_text
+            pexels_images=images_text,
+            merge_tags=merge_tags_text
         )
         
         # Generate email template, subject line, and campaign name
@@ -1317,6 +1360,7 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             "email_document_id": email_document_id,
             "email_html": email_html,
             "email_update_count": 0,
+            "merge_tags": merge_tags_list,
             "current_step": "review_email_template"
         }
         

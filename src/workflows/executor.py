@@ -118,6 +118,7 @@ class WorkflowExecutor:
             "create_new_list": False,
             "matched_lists": [],
             "fredql_query": "",
+            "merge_tags": [],
             "email_template": "",
             "schedule_confirmed": False,
             "clarifications_needed": [],

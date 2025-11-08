@@ -92,10 +92,39 @@ async def process_email_changes_ws(state: CampaignState, llm, send_message: Call
         location_context = format_location_context(location)
         business_name = location.get("name", "Our Business")
         
+        # Format merge tags for prompt
+        merge_tags_list = state.get("merge_tags", [])
+        print(f"[Email Update] Merge tags in state: {len(merge_tags_list)} tags")
+        
+        merge_tag_items = []
+        for tag in merge_tags_list:
+            attrs = tag.get("attributes", {})
+            tag_value = attrs.get("merge_tag_value", "")
+            display_name = attrs.get("display_name", tag_value)
+            preview_value = attrs.get("preview_value", "")
+            hidden = attrs.get("hidden", False)
+            
+            # Skip hidden tags
+            if hidden:
+                continue
+            
+            if tag_value:
+                tag_item = f"- **{{{{{tag_value}}}}}** ({display_name})"
+                if preview_value:
+                    tag_item += f" - Example: {preview_value}"
+                merge_tag_items.append(tag_item)
+        
+        merge_tags_text = "\n".join(merge_tag_items) if merge_tag_items else "No merge tags available."
+        print(f"[Email Update] Formatted {len(merge_tag_items)} tags for LLM prompt")
+        if merge_tag_items:
+            print(f"[Email Update] First 3 merge tags:\n{chr(10).join(merge_tag_items[:3])}")
+        print(f"[Email Update] User feedback: {user_feedback}")
+        
         # Prepare prompt for LLM
         update_prompt = EMAIL_UPDATE_PROMPT.format_messages(
             business_name=business_name,
             location_context=location_context,
+            merge_tags=merge_tags_text,
             current_html=current_html,
             user_feedback=user_feedback
         )
