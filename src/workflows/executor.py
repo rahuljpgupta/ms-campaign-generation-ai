@@ -111,10 +111,12 @@ class WorkflowExecutor:
             "audience": "",
             "template": "",
             "datetime": "",
+            "image_search_queries": [],
             "location_id": location_id,
             "location": location or {},  # Store full location object for timezone and other data
             "smart_list_id": "",
             "smart_list_name": "",
+            "smart_list_display": "",
             "create_new_list": False,
             "matched_lists": [],
             "fredql_query": "",
@@ -170,11 +172,29 @@ class WorkflowExecutor:
         # Step 2: Handle clarifications (loop until all resolved)
         await self._clarification_loop(current_state, send_msg, location)
         
-        # Step 3: Check smart lists
-        await self._check_smart_lists_step(current_state, send_msg, credentials)
-        
-        # Step 4: Handle smart list selection
-        await self._handle_smart_list_selection(current_state, send_msg, location, credentials)
+        # Check if audience is "all_customers" - if so, skip smart list workflow
+        audience = current_state.get("audience", "").lower()
+        if audience == "all_customers":
+            # Skip smart list workflow - set empty values
+            current_state["smart_list_id"] = ""
+            current_state["smart_list_name"] = ""
+            current_state["smart_list_display"] = ""
+            current_state["create_new_list"] = False
+            current_state["current_step"] = "create_campaign"
+            
+            # Inform user
+            await send_msg({
+                "type": "assistant",
+                "message": "✓ Understood! This campaign will be sent to **all customers**.",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+        else:
+            # Step 3: Check smart lists
+            await self._check_smart_lists_step(current_state, send_msg, credentials)
+            
+            # Step 4: Handle smart list selection
+            await self._handle_smart_list_selection(current_state, send_msg, location, credentials)
         
         # Step 5: Create campaign and generate email template
         await self._create_campaign_step(current_state, send_msg, location, credentials)
@@ -187,8 +207,8 @@ class WorkflowExecutor:
         if current_state["current_step"] == "confirm_schedule":
             await self._confirm_schedule(current_state, send_msg, credentials)
         
-        # Step 8: Show final summary or cancellation
-        await self._show_final_result(current_state, send_msg, client_id)
+        # Workflow complete - cleanup
+        self._cleanup_client(client_id)
     
     async def _parse_prompt_step(self, state, send_msg, location: dict = None):
         """Parse the user's campaign prompt"""
@@ -436,46 +456,6 @@ class WorkflowExecutor:
         if state["current_step"] == "schedule_campaign":
             schedule_result = await schedule_campaign_ws(state, send_msg, credentials)
             state.update(schedule_result)
-    
-    async def _show_final_result(self, state, send_msg, client_id):
-        """Show final summary or cancellation message"""
-        if state["current_step"] == "end_for_now":
-            summary = self._build_campaign_summary(state)
-            
-            await send_msg({
-                "type": "assistant",
-                "message": summary,
-                "timestamp": asyncio.get_event_loop().time(),
-                "disable_input": False
-            })
-            
-            self._cleanup_client(client_id)
-        
-        elif state["current_step"] == "cancelled":
-            await send_msg({
-                "type": "system",
-                "message": "Campaign creation cancelled. Start a new conversation to create another campaign.",
-                "timestamp": asyncio.get_event_loop().time(),
-                "disable_input": False
-            })
-            
-            self._cleanup_client(client_id)
-    
-    def _build_campaign_summary(self, state: dict) -> str:
-        """Build final campaign summary message"""
-        summary = "✅ Campaign setup complete!\n\n"
-        summary += f"📊 **Audience:** {state['audience']}\n"
-        summary += f"📧 **Campaign:** {state['template']}\n"
-        summary += f"📅 **Schedule:** {state['datetime']}\n"
-        
-        if state.get('create_new_list'):
-            summary += f"📋 **Smart List:** New list will be created\n"
-            if state.get('fredql_query'):
-                summary += f"   FredQL query generated ✓\n"
-        elif state.get('smart_list_id'):
-            summary += f"📋 **Smart List:** {state.get('smart_list_name', 'Selected')}\n"
-        
-        return summary
     
     def _cleanup_client(self, client_id: str):
         """Clean up client session and workflow"""

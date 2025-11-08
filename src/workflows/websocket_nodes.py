@@ -128,6 +128,7 @@ async def confirm_smart_list_selection_ws(state: CampaignState, send_message: Ca
                 "create_new_list": False,
                 "smart_list_id": selected.get("id"),
                 "smart_list_name": selected.get("name"),
+                "smart_list_display": selected.get("display_name") or selected.get("name"),
                 "current_step": "complete_selection"
             }
         else:
@@ -467,17 +468,21 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
                     pass
             
             # Check if the generated filter is empty [] (all customers/subscribers)
-            # Empty filters are valid but cannot be displayed in edit panel
+            # Empty filters are valid but should proceed to campaign creation
             if isinstance(fredql_query, list) and len(fredql_query) == 0:
                 await send_message({
                     "type": "assistant",
-                    "message": "Your audience description matches **all customers** (no filters needed).\n\nSince this doesn't require any specific filtering, you can select your entire contact list when setting up the campaign.",
+                    "message": "✓ Your audience is **all customers** (no filters needed).\n\nProceeding to create the campaign...",
                     "timestamp": asyncio.get_event_loop().time(),
                     "disable_input": False
                 })
                 
+                # Use empty contact list for scheduling
                 return {
-                    "current_step": "end_for_now"
+                    "smart_list_name": "",  # Empty string indicates no specific list
+                    "smart_list_id": "",
+                    "fredql_query": [],
+                    "current_step": "create_campaign"
                 }
             
             # FredQL generated successfully - proceed directly to creation
@@ -505,7 +510,7 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
             })
             
             return {
-                "current_step": "end_for_now"
+                "current_step": "cancelled"
             }
     
     except Exception as e:
@@ -517,7 +522,7 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
         })
         
         return {
-            "current_step": "end_for_now"
+            "current_step": "cancelled"
         }
 
 
@@ -644,6 +649,7 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
                 return {
                     "smart_list_id": selected["id"],
                     "smart_list_name": selected["name"],  # Use 'name' for campaign scheduling API
+                    "smart_list_display": selected.get("display_name") or selected["name"],
                     "create_new_list": False,
                     "manual_list": True,
                     "current_step": "create_campaign"
@@ -687,6 +693,7 @@ async def handle_manual_list_name_ws(state: CampaignState, send_message: Callabl
                     return {
                         "smart_list_id": selected_list["id"],
                         "smart_list_name": selected_list["name"],  # Use 'name' for campaign scheduling API
+                        "smart_list_display": selected_list.get("display_name") or selected_list["name"],
                         "create_new_list": False,
                         "manual_list": True,
                         "current_step": "create_campaign"
@@ -753,7 +760,7 @@ async def confirm_create_smart_list_ws(state: CampaignState, send_message: Calla
             "timestamp": asyncio.get_event_loop().time()
         })
         return {
-            "current_step": "end_for_now"
+            "current_step": "cancelled"
         }
 
 
@@ -803,7 +810,7 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
             "disable_input": False
         })
         return {
-            "current_step": "end_for_now"
+            "current_step": "cancelled"
         }
     
     await send_message({
@@ -840,7 +847,7 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
                     "disable_input": False
                 })
                 return {
-                    "current_step": "end_for_now"
+                    "current_step": "cancelled"
                 }
         
         # Get credentials
@@ -894,18 +901,21 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
                     "disable_input": False
                 })
                 return {
-                    "current_step": "end_for_now"
+                    "current_step": "cancelled"
                 }
         
         # Extract smart list details
         smart_list_data = result.get("data", {})
         smart_list_id = smart_list_data.get("id", "")
+        attrs = smart_list_data.get("attributes", {})
         # Use 'name' attribute (not 'display_name') as it's required for campaign scheduling API
-        smart_list_name = smart_list_data.get("attributes", {}).get("name", display_name)
+        smart_list_name = attrs.get("name", display_name)
+        # Use display_name for showing to user
+        smart_list_display = attrs.get("display_name") or smart_list_name
         
         await send_message({
             "type": "assistant",
-            "message": f"✓ Smart list created successfully!\n\n**Name:** {smart_list_name}",
+            "message": f"✓ Smart list created successfully!\n\n**Name:** {smart_list_display}",
             "timestamp": asyncio.get_event_loop().time(),
             "disable_input": False
         })
@@ -924,6 +934,7 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
         return {
             "smart_list_id": smart_list_id,
             "smart_list_name": smart_list_name,
+            "smart_list_display": smart_list_display,
             "create_new_list": True,
             "creation_attempts": 0,  # Reset counter on success
             "current_step": "review_smart_list"
@@ -937,7 +948,7 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
             "disable_input": False
         })
         return {
-            "current_step": "end_for_now"
+            "current_step": "cancelled"
         }
     except Exception as e:
         await send_message({
@@ -947,7 +958,7 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
             "disable_input": False
         })
         return {
-            "current_step": "end_for_now"
+            "current_step": "cancelled"
         }
 
 
@@ -972,14 +983,6 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
         smart_list_name = state.get("smart_list_name", "")
         
         credentials = credentials or {}
-        
-        # Notify user we're starting campaign creation
-        await send_message({
-            "type": "assistant_thinking",
-            "message": "Creating your campaign and generating email template...",
-            "timestamp": asyncio.get_event_loop().time(),
-            "disable_input": True
-        })
         
         # Step 1: Fetch social profile links
         from src.mcp.campaigns_mcp import get_social_profile_links
@@ -1020,7 +1023,14 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
         
         social_links_text = "\n".join(social_links_formatted) if social_links_formatted else "No social profile links available"
         
-        # Step 2: Fetch latest 5 campaign emails
+        # Step 2: Fetch latest campaign emails
+        await send_message({
+            "type": "assistant_thinking",
+            "message": "Looking at your existing campaign emails...",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": True
+        })
+        
         from src.mcp.campaigns_mcp import get_latest_campaign_emails
         
         emails_result = await get_latest_campaign_emails(
@@ -1058,6 +1068,13 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             reference_templates = "\n\n".join(template_texts) if template_texts else "No reference templates available. Create a clean, professional email template."
         
         # Step 3: Fetch merge tags for personalization
+        await send_message({
+            "type": "assistant_thinking",
+            "message": "Fetching dynamic tags for personalization...",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": True
+        })
+        
         from src.mcp.campaigns_mcp import get_merge_tags
         
         merge_tags_result = await get_merge_tags(
@@ -1102,84 +1119,63 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
         # Step 4: Fetch relevant images from Pexels
         await send_message({
             "type": "assistant_thinking",
-            "message": "Finding perfect images for your email...",
+            "message": "Generating images for you...",
             "timestamp": asyncio.get_event_loop().time(),
             "disable_input": True
         })
         
-        from src.utils.image_utils import get_pexels_images
-        
-        # Extract focused keywords from campaign description for image search
-        # Keep it short and focused - just the main theme/topic (e.g., "thanksgiving", "yoga", "fitness")
-        campaign_lower = campaign_description.lower()
-        
-        # Common themes/keywords to look for
-        theme_keywords = {
-            "thanksgiving": "thanksgiving",
-            "christmas": "christmas",
-            "holiday": "holiday celebration",
-            "halloween": "halloween",
-            "valentine": "valentine",
-            "fitness": "fitness workout",
-            "yoga": "yoga wellness",
-            "gym": "gym training",
-            "wellness": "spa wellness",
-            "sale": "shopping sale",
-            "discount": "shopping discount",
-            "promotion": "retail promotion",
-            "spring": "spring season",
-            "summer": "summer vacation",
-            "fall": "autumn fall",
-            "winter": "winter season",
-            "new year": "new year celebration",
-            "birthday": "birthday celebration",
-            "anniversary": "anniversary celebration"
-        }
-        
-        # Find matching theme or use first few words
-        image_search_query = "business professional"  # Default
-        for keyword, search_term in theme_keywords.items():
-            if keyword in campaign_lower:
-                image_search_query = search_term
-                break
-        else:
-            # If no theme found, extract first 2-3 meaningful words (skip common words)
-            skip_words = {"a", "an", "the", "for", "to", "and", "or", "with", "email", "campaign", "customers", "announcing"}
-            words = [w for w in campaign_description.split()[:10] if w.lower() not in skip_words]
-            if words:
-                image_search_query = " ".join(words[:3])
-        
-        # Fetch 2-3 relevant images from Pexels
-        pexels_result = await get_pexels_images(
-            query=image_search_query,
-            count=3
-        )
-        
-        # Format images for prompt
-        if "error" in pexels_result or not pexels_result.get("images"):
-            images_text = "No images available. Use existing images from reference templates if available."
+        # Wrap image fetching in try-except to ensure it never breaks campaign creation
+        images_text = "No images available. Use existing images from reference templates if available."
+        try:
+            from src.utils.image_utils import get_pexels_images
+            
+            # Use LLM-generated image search queries from state
+            image_search_queries = state.get("image_search_queries", [])
+            
+            # Use the first query, or fall back to default if not available
+            if image_search_queries and len(image_search_queries) > 0:
+                image_search_query = image_search_queries[0]
+            else:
+                # Fallback to a generic query
+                image_search_query = "business professional"
+            
+            # Fetch 2-3 relevant images from Pexels using the focused query
+            pexels_result = await get_pexels_images(
+                query=image_search_query,
+                count=3
+            )
+            
+            # Format images for prompt
+            if "error" in pexels_result or not pexels_result.get("images"):
+                await send_message({
+                    "type": "system",
+                    "message": "⚠️ Couldn't fetch images from Pexels, continuing without them.",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+            else:
+                images = pexels_result.get("images", [])
+                image_texts = []
+                for idx, img in enumerate(images, 1):
+                    image_texts.append(
+                        f"Image {idx}:\n"
+                        f"- URL: {img['url']}\n"
+                        f"- Alt Text: {img['alt_description']}\n"
+                        f"- Photographer: {img['photographer']} ({img['photographer_url']})"
+                    )
+                images_text = "\n\n".join(image_texts)
+        except Exception as e:
             await send_message({
                 "type": "system",
                 "message": "⚠️ Couldn't fetch images from Pexels, continuing without them.",
                 "timestamp": asyncio.get_event_loop().time(),
                 "disable_input": False
             })
-        else:
-            images = pexels_result.get("images", [])
-            image_texts = []
-            for idx, img in enumerate(images, 1):
-                image_texts.append(
-                    f"Image {idx}:\n"
-                    f"- URL: {img['url']}\n"
-                    f"- Alt Text: {img['alt_description']}\n"
-                    f"- Photographer: {img['photographer']} ({img['photographer_url']})"
-                )
-            images_text = "\n\n".join(image_texts)
         
         # Step 4: Generate email template using LLM
         await send_message({
             "type": "assistant_thinking",
-            "message": "Generating your email template with selected images...",
+            "message": "Generating email template...",
             "timestamp": asyncio.get_event_loop().time(),
             "disable_input": True
         })
@@ -1222,6 +1218,13 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             subject_line = email_data.get("subject_line", "")
             email_html = email_data.get("html", "")
             
+            # Remove any merge tags from campaign name and subject line (safety measure)
+            import re
+            if campaign_name:
+                campaign_name = re.sub(r'\{\{[^}]+\}\}', '', campaign_name).strip()
+            if subject_line:
+                subject_line = re.sub(r'\{\{[^}]+\}\}', '', subject_line).strip()
+            
             # Ensure campaign name starts with "AI - "
             if campaign_name and not campaign_name.startswith("AI - "):
                 campaign_name = f"AI - {campaign_name}"
@@ -1241,7 +1244,7 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
                     "disable_input": False
                 })
                 return {
-                    "current_step": "end_for_now"
+                    "current_step": "cancelled"
                 }
         except json.JSONDecodeError as e:
             await send_message({
@@ -1251,10 +1254,17 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
                 "disable_input": False
             })
             return {
-                "current_step": "end_for_now"
+                "current_step": "cancelled"
             }
         
-        # Step 4: Create campaign
+        # Step 5: Create campaign
+        await send_message({
+            "type": "assistant_thinking",
+            "message": "Creating campaign...",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": True
+        })
+        
         from src.mcp.campaigns_mcp import create_campaign
         
         campaign_result = await create_campaign(
@@ -1275,7 +1285,7 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
                 "disable_input": False
             })
             return {
-                "current_step": "end_for_now"
+                "current_step": "cancelled"
             }
         
         campaign_data = campaign_result.get("data", {})
@@ -1289,10 +1299,10 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
                 "disable_input": False
             })
             return {
-                "current_step": "end_for_now"
+                "current_step": "cancelled"
             }
         
-        # Step 5: Create email document
+        # Step 6: Save email template
         from src.mcp.campaigns_mcp import create_email_document
         
         email_doc_result = await create_email_document(
@@ -1315,7 +1325,7 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             return {
                 "campaign_id": campaign_id,
                 "campaign_name": campaign_name,
-                "current_step": "end_for_now"
+                "current_step": "cancelled"
             }
         
         # Extract email document ID
@@ -1332,13 +1342,13 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             return {
                 "campaign_id": campaign_id,
                 "campaign_name": campaign_name,
-                "current_step": "end_for_now"
+                "current_step": "cancelled"
             }
         
         # Success! Navigate to HTML editor
         await send_message({
             "type": "assistant",
-            "message": f"✅ Campaign created successfully!\n\n**Campaign:** {campaign_name}\n**Subject Line:** {subject_line}\n**Email template:** Generated and saved\n\nOpening the HTML editor for you to review and customize...",
+            "message": f"✅ All done! Your campaign is ready.\n\n**Campaign:** {campaign_name}\n**Subject Line:** {subject_line}\n\nOpening the editor so you can review and customize your email...",
             "timestamp": asyncio.get_event_loop().time(),
             "disable_input": False
         })
@@ -1372,6 +1382,6 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             "disable_input": False
         })
         return {
-            "current_step": "end_for_now"
+            "current_step": "cancelled"
         }
 

@@ -25,8 +25,16 @@ async def confirm_schedule_ws(state: CampaignState, send_message: Callable) -> d
     """
     schedule = state.get("datetime", "")
     campaign_name = state.get("campaign_name", "your campaign")
+    smart_list_name = state.get("smart_list_name", "")
+    smart_list_display = state.get("smart_list_display", smart_list_name)
     
-    message = f"**Campaign:** {campaign_name}\n\n**Scheduled for:** {schedule}\n\nPlease confirm:\n• Type any changes to the schedule\n• Or reply with **\"yes\"**, **\"confirm\"**, or **\"schedule it\"** to proceed"
+    # Build audience description (use display_name for UI)
+    if smart_list_display:
+        audience_text = f"**Audience:** {smart_list_display}"
+    else:
+        audience_text = "**Audience:** All customers"
+    
+    message = f"**Campaign:** {campaign_name}\n\n{audience_text}\n\n**Scheduled for:** {schedule}\n\nPlease confirm:\n• Type any changes to the schedule\n• Or reply with **\"yes\"**, **\"confirm\"**, or **\"schedule it\"** to proceed"
     
     # Wait for user response with a unique question ID
     question_id = f"confirm_schedule_{asyncio.get_event_loop().time()}"
@@ -183,14 +191,17 @@ async def schedule_campaign_ws(state: CampaignState, send_message: Callable, cre
         
         # Schedule the campaign
         # Note: API expects contact list display names (not IDs) and status='scheduled'
+        # If smart_list_name is empty, use empty array [] to target all customers
         credentials = credentials or {}
+        contact_list_names = [smart_list_name] if smart_list_name else []
+        
         schedule_result = await schedule_campaign(
             location_id,
             campaign_id,
             campaign_name,
             subject_line,
             send_at_iso,
-            [smart_list_name],  # contact_list_names as array of display names
+            contact_list_names,  # contact_list_names as array of display names (empty for all customers)
             api_key=credentials.get("api_key"),
             bearer_token=credentials.get("bearer_token"),
             api_url=credentials.get("api_url")
@@ -229,7 +240,7 @@ async def schedule_campaign_ws(state: CampaignState, send_message: Callable, cre
         return {
             "schedule_confirmed": True,
             "send_at": send_at_iso,
-            "current_step": "end_for_now"
+            "current_step": "completed"
         }
         
     except Exception as e:

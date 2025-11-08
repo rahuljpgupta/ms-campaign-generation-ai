@@ -24,11 +24,12 @@ async def ask_for_review_ws(state: CampaignState, send_message: Callable) -> dic
     Ask user to review the smart list and provide feedback or confirm.
     """
     smart_list_name = state.get("smart_list_name", "Unknown List")
+    smart_list_display = state.get("smart_list_display", smart_list_name)
     smart_list_id = state.get("smart_list_id", "")
     creation_attempts = state.get("creation_attempts", 0)
     
-    # Ensure we're displaying the name, not ID
-    display_text = smart_list_name if smart_list_name and smart_list_name != smart_list_id else "your smart list"
+    # Use display_name for showing to user, fallback to name if not available
+    display_text = smart_list_display if smart_list_display and smart_list_display != smart_list_id else "your smart list"
     
     # First time or after update
     if creation_attempts == 0:
@@ -228,6 +229,7 @@ If the requested changes are not possible, return:
         # Validate the updated FredQL
         updated_fredql = result.get("fredql_query", [])
         updated_name = result.get("display_name", current_display_name)
+        updated_display = updated_name  # Initialize with the same value
         explanation = result.get("explanation", "Smart list updated")
         
         # Clean the FredQL - remove any empty or incomplete filters
@@ -339,9 +341,12 @@ If the requested changes are not possible, return:
         # Use 'name' attribute (not 'display_name') as it's required for campaign scheduling API
         updated_data = update_result.get("data", {})
         if isinstance(updated_data, dict):
-            response_name = updated_data.get("attributes", {}).get("name", updated_name)
+            attrs = updated_data.get("attributes", {})
+            response_name = attrs.get("name", updated_name)
+            response_display = attrs.get("display_name") or response_name
             if response_name:
                 updated_name = response_name
+                updated_display = response_display
         
         # Success! Refresh the UI to show updated list
         await send_message({
@@ -376,6 +381,7 @@ If the requested changes are not possible, return:
         # Update state and go back to review
         return {
             "smart_list_name": updated_name,
+            "smart_list_display": updated_display,
             "fredql_query": updated_fredql,
             "current_step": "review_smart_list"
         }

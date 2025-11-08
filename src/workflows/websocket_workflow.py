@@ -98,7 +98,6 @@ def build_websocket_workflow(llm, send_message):
         "schedule_campaign",
         lambda state: schedule_confirmation_nodes.schedule_campaign_ws(state, send_message)
     )
-    workflow.add_node("end_for_now", lambda state: {"current_step": "completed"})
     
     # Set entry point
     workflow.set_entry_point("parse_prompt")
@@ -126,53 +125,48 @@ def build_websocket_workflow(llm, send_message):
     
     workflow.add_conditional_edges(
         "check_smart_lists",
-        lambda state: state.get("current_step", "end_for_now"),
+        lambda state: state.get("current_step", "confirm_smart_list_selection"),
         {
             "confirm_smart_list_selection": "confirm_smart_list_selection",
-            "confirm_new_list": "confirm_new_list",
-            "end_for_now": "end_for_now"
+            "confirm_new_list": "confirm_new_list"
         }
     )
     
     # After smart list selection/confirmation, route to create campaign
     workflow.add_conditional_edges(
         "confirm_smart_list_selection",
-        lambda state: state.get("current_step", "end_for_now"),
+        lambda state: state.get("current_step", "generate_fredql"),
         {
             "generate_fredql": "generate_fredql",
-            "create_campaign": "create_campaign",
-            "end_for_now": "end_for_now"
+            "create_campaign": "create_campaign"
         }
     )
     
     workflow.add_conditional_edges(
         "confirm_new_list",
-        lambda state: state.get("current_step", "end_for_now"),
+        lambda state: state.get("current_step", "generate_fredql"),
         {
-            "generate_fredql": "generate_fredql",
-            "end_for_now": "end_for_now"
+            "generate_fredql": "generate_fredql"
         }
     )
     
     # After FredQL generation, create the list
     workflow.add_conditional_edges(
         "generate_fredql",
-        lambda state: state.get("current_step", "end_for_now"),
+        lambda state: state.get("current_step", "create_smart_list"),
         {
-            "create_smart_list": "create_smart_list",
-            "end_for_now": "end_for_now"
+            "create_smart_list": "create_smart_list"
         }
     )
     
     # After creating smart list, check next step
     workflow.add_conditional_edges(
         "create_smart_list",
-        lambda state: state.get("current_step", "end_for_now"),
+        lambda state: state.get("current_step", "review_smart_list"),
         {
             "review_smart_list": "review_smart_list",
             "retry_smart_list_creation": "retry_smart_list_creation",
-            "awaiting_manual_list_name": "handle_manual_list_name",
-            "end_for_now": "end_for_now"
+            "awaiting_manual_list_name": "handle_manual_list_name"
         }
     )
     
@@ -182,21 +176,19 @@ def build_websocket_workflow(llm, send_message):
     # After manual list name, create campaign
     workflow.add_conditional_edges(
         "handle_manual_list_name",
-        lambda state: state.get("current_step", "end_for_now"),
+        lambda state: state.get("current_step", "create_campaign"),
         {
-            "create_campaign": "create_campaign",
-            "end_for_now": "end_for_now"
+            "create_campaign": "create_campaign"
         }
     )
     
     # After review, either process changes or create campaign
     workflow.add_conditional_edges(
         "review_smart_list",
-        lambda state: state.get("current_step", "end_for_now"),
+        lambda state: state.get("current_step", "process_smart_list_changes"),
         {
             "process_smart_list_changes": "process_smart_list_changes",
-            "create_campaign": "create_campaign",
-            "end_for_now": "end_for_now"
+            "create_campaign": "create_campaign"
         }
     )
     
@@ -209,11 +201,10 @@ def build_websocket_workflow(llm, send_message):
     # After email review, either process changes or confirm schedule
     workflow.add_conditional_edges(
         "review_email_template",
-        lambda state: state.get("current_step", "end_for_now"),
+        lambda state: state.get("current_step", "process_email_changes"),
         {
             "process_email_changes": "process_email_changes",
-            "confirm_schedule": "confirm_schedule",
-            "end_for_now": "end_for_now"
+            "confirm_schedule": "confirm_schedule"
         }
     )
     
@@ -223,21 +214,18 @@ def build_websocket_workflow(llm, send_message):
     # After schedule confirmation, either process changes or schedule campaign
     workflow.add_conditional_edges(
         "confirm_schedule",
-        lambda state: state.get("current_step", "end_for_now"),
+        lambda state: state.get("current_step", "process_schedule_changes"),
         {
             "process_schedule_changes": "process_schedule_changes",
-            "schedule_campaign": "schedule_campaign",
-            "end_for_now": "end_for_now"
+            "schedule_campaign": "schedule_campaign"
         }
     )
     
     # After processing schedule changes, go back to confirmation
     workflow.add_edge("process_schedule_changes", "confirm_schedule")
     
-    # After scheduling campaign, end
-    workflow.add_edge("schedule_campaign", "end_for_now")
-    
-    workflow.add_edge("end_for_now", END)
+    # After scheduling campaign, workflow completes
+    workflow.add_edge("schedule_campaign", END)
     
     # Compile with checkpointing for pause/resume
     checkpointer = MemorySaver()

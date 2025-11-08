@@ -16,9 +16,16 @@ LOCATION CONTEXT:
 
 Extract the following information from the user's campaign prompt:
 1. AUDIENCE: Who should receive this campaign (location, demographics, behavior, past interactions, etc.)
+   - If the user wants to send to "everyone", "all customers", "all clients", "all audience", "all subscribers", "entire customer base", or similar → set audience to "all_customers"
+   - Otherwise, provide specific audience criteria
 2. TEMPLATE: A short description of the campaign email content. 
 3. DATETIME: When should the campaign be sent (date and time in ISO 8601 format with timezone offset, e.g., "2025-11-28T14:15:00+05:30"). Convert relative dates (like "Black Friday", "next Monday", "in 2 weeks") to specific dates based on today's date. Use the location's timezone from the context above.
-4. MISSING_INFO: What critical information is missing or ambiguous. Do not ask low level details of the email template. We'll handle that later.
+4. IMAGE_SEARCH_QUERIES: Generate 1-2 focused, specific search queries (2-3 words each) for finding relevant stock images that match the campaign theme
+   - Examples: For a yoga studio promotion → ["yoga class", "meditation studio"]
+   - Examples: For a fitness sale → ["gym workout", "fitness training"]
+   - Examples: For a spa discount → ["spa massage", "relaxation wellness"]
+   - Keep queries SHORT and SPECIFIC - avoid full sentences
+5. MISSING_INFO: What critical information is missing or ambiguous. Do not ask low level details of the email template. We'll handle that later.
 
 IMPORTANT: 
 - Only identify the MOST CRITICAL missing information (maximum 3 questions)
@@ -33,6 +40,7 @@ IMPORTANT:
 - Assume the campaign send timezone is always the location's timezone.
 - Do not ask about desired subject line and preheader text. We'll handle that later.
 - Do not ask about the existence of smart list filters. We'll handle that later.
+- All the questions in missing_info should be mutually exclusive. Do not ask about the same thing in multiple questions.
 - Generate a short smart list name (2-8 words max) that describes the audience. The name should start with "AI - "
 
 Return the result in JSON format matching this structure:
@@ -41,6 +49,7 @@ Return the result in JSON format matching this structure:
     "template": "description of campaign content and offer",
     "datetime": "YYYY-MM-DDTHH:MM:SS+TZ:TZ (ISO 8601 format with location's timezone offset)",
     "smart_list_name": "AI - [short 2-8 word description of the audience]",
+    "image_search_queries": ["query1", "query2"],
     "missing_info": ["list of up to 3 most critical missing items"]
 }}"""),
     ("human", "{prompt}")
@@ -78,6 +87,7 @@ IMPORTANT:
 - Convert relative dates (like "Black Friday", "next Monday", "in 2 weeks") to specific dates based on today's date
 - Generate a short smart list name (2-8 words max) that describes the audience. The name should start with "AI - "
 - DateTime must be in ISO 8601 format with timezone offset (e.g., "2025-11-28T14:15:00+05:30"). Use the location's timezone from the context above.
+- If the user wants to send to "everyone", "all customers", "all clients", "all audience", "all subscribers", "entire customer base", or similar → set audience to "all_customers"
 
 Return the result in JSON format:
 {{
@@ -85,6 +95,7 @@ Return the result in JSON format:
     "template": "updated template/content description",
     "datetime": "YYYY-MM-DDTHH:MM:SS+TZ:TZ (ISO 8601 format with location's timezone offset)",
     "smart_list_name": "AI - [short 2-8 word description of the audience]",
+    "image_search_queries": ["query1", "query2"],
     "missing_info": ["up to 3 most critical remaining items, empty list if sufficient info"]
 }}"""),
     ("human", "Update the campaign based on the clarifications provided.")
@@ -298,12 +309,14 @@ TASK:
 Generate three components for this email campaign:
 
 1. **Campaign Name**: A descriptive internal name for this campaign starting with "AI - " (e.g., "AI - Spring Sale - March 2024", "AI - New Member Welcome")
+   - **DO NOT use merge tags in campaign name** - Use plain text only
 
 2. **Subject Line**: An engaging email subject line that:
    - Matches the brand's tone from reference templates
    - Is concise (under 60 characters)
    - Encourages opens
    - Relates to the campaign brief
+   - **DO NOT use merge tags in subject line** - Use plain text only
 
 3. **HTML Email Template**: A complete, valid HTML email that:
    - **Preserves the brand identity**: Match the writing style, tone, and language from reference templates
@@ -320,12 +333,13 @@ Generate three components for this email campaign:
      * **Image grid**: Multiple smaller images together
      * **DO NOT put images after the signature/closing** - All images and CTAs must come BEFORE the closing/signature
    - **Email Structure** (MUST follow this order):
-     1. Header/Logo (if applicable)
-     2. Greeting using merge tags (e.g., "{{{{salutation}}}} {{{{first_name}}}},")
-     3. Main content with images and text blocks (use creative layouts)
-     4. Call-to-action button (if needed)
-     5. Closing/Signature (e.g., "Warm wishes, [Business Name] Team") - **This should be the last meaningful content**
-     6. Footer (company address, social links, unsubscribe)
+     1. **Hero Image** - MUST start with a full-width hero image from PEXELS IMAGES at the very top
+     2. Header/Logo (if applicable, can be overlaid on hero or below it)
+     3. Greeting using merge tags (e.g., "{{{{salutation}}}} {{{{first_name}}}},")
+     4. Main content with additional images and text blocks (use creative layouts)
+     5. Call-to-action button (if needed)
+     6. Closing/Signature (e.g., "Warm wishes, [Business Name] Team") - **This should be the last meaningful content**
+     7. Footer (company address, social links, unsubscribe)
    - **Includes all standard elements**:
      - Unsubscribe link: Must include at the bottom - No longer want these emails? <a href="{{{{unsubscribe_link}}}}" target="_blank">Unsubscribe</a>
      - Company name and address (from location context)
@@ -343,12 +357,16 @@ Generate three components for this email campaign:
 IMPORTANT GUIDELINES:
 - Generate ONLY valid HTML email code (no markdown, no explanations)
 - Use only inline CSS for all styling to ensure compatibility across email clients
+- **MUST start with a hero image** - The email MUST begin with a full-width hero image from PEXELS IMAGES
 - **MUST use 1-3 images from PEXELS IMAGES section** - Use the actual URLs provided, not placeholders
 - **Use alt text ONLY in the alt attribute** - Do NOT display alt text as visible text in the email
-- Include photographer credits for Pexels images: <p style="font-size: 10px; color: #999;">Photo by [photographer name]</p>
+- **DO NOT display photographer names or credits** - Do NOT add any text like "Photo by [photographer]" anywhere in the email
+- **DO NOT use merge tags in campaign name or subject line** - Merge tags are ONLY for email body content
 
 **CREATIVE IMAGE LAYOUT EXAMPLES**:
-  1. **Hero Image**: `<img src="[pexels-url]" alt="..." style="width:100%; max-width:600px; height:auto;">`
+  1. **Hero Image (REQUIRED at top)**: 
+     `<img src="[pexels-url]" alt="..." style="width:100%; max-width:600px; height:auto; display:block;">`
+     This MUST be the first visual element in your email.
   2. **Image + Text (Left/Right)**:
      ```
      <table style="width:100%;">
@@ -440,6 +458,7 @@ CRITICAL REQUIREMENTS:
 - Do NOT include unsafe tags like Script, iframe
 - Use inline CSS only for all styling to ensure compatibility across email clients
 - Keep all required elements: unsubscribe link, company info, social links
+- **DO NOT display photographer names or credits** - Do NOT add any text like "Photo by [photographer]" anywhere in the email
 - **Maintain proper email structure**: All content and images must come BEFORE the closing/signature
 - Closing/signature should be the last meaningful content before footer elements (footer = company info, social links, unsubscribe)
 - Social media links must be used from SOCIAL PROFILE LINKS section and not from the existing email templates
