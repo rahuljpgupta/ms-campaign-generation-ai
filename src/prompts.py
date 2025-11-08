@@ -263,6 +263,9 @@ SOCIAL PROFILE LINKS (use ONLY these valid links):
 CAMPAIGN BRIEF:
 {campaign_description}
 
+PEXELS IMAGES (use 1-3 of these FREE high-quality images in your email):
+{pexels_images}
+
 REFERENCE TEMPLATES:
 Below are some recent email templates from this business. Study them carefully to understand:
 - Brand voice and writing style
@@ -291,15 +294,30 @@ Generate three components for this email campaign:
    - **Follows the structure**: Use similar layout patterns (header, content blocks, CTA, footer) from reference templates
    - **Includes meaningful, engaging content in the email body** - not just structure, but actual relevant content
    - **Start with a greeting** to the customer
-   - **Use existing branding elements**: Extract and use logos, brand colors, fonts, and images from reference templates
+   - **Use existing branding elements**: Extract and use logos, brand colors, fonts from reference templates
+   - **MUST include 1-3 images from PEXELS IMAGES section** - Use the actual image URLs provided above
+   - **Use alt text properly**: Put alt descriptions in the `alt` attribute only (e.g., `<img src="..." alt="description">`) - do NOT display alt text as visible text
+   - **Creative Image Layouts**: Use varied, engaging image placements:
+     * **Hero image**: Full-width image at the top
+     * **Image + Text blocks**: Two-column layouts with image on left (or right) and text on right (or left)
+     * **Inline images**: Images integrated within content blocks
+     * **Image grid**: Multiple smaller images together
+     * **DO NOT put images after the signature/closing** - All images and CTAs must come BEFORE the closing/signature
+   - **Email Structure** (MUST follow this order):
+     1. Header/Logo (if applicable)
+     2. Greeting (e.g., "Hi there,")
+     3. Main content with images and text blocks (use creative layouts)
+     4. Call-to-action button (if needed)
+     5. Closing/Signature (e.g., "Warm wishes, [Business Name] Team") - **This should be the last meaningful content**
+     6. Footer (company address, social links, unsubscribe)
    - **Includes all standard elements**:
      - Unsubscribe link: Must include at the bottom - No longer want these emails? <a href="{{{{unsubscribe_link}}}}" target="_blank">Unsubscribe</a>
      - Company name and address (from location context)
      - Social media links must be used from SOCIAL PROFILE LINKS section and not from the existing email templates
-     - Must include all the social media links from the SOCIAL PROFILE LINKS section
-     - If no social media links are provided, do not include the social links block at the end
+     - Must include all the social media links from the SOCIAL PROFILE LINKS section just before signature
+     - If no social media links are provided, do not include the social links block
      - Use the social links icons from the SOCIAL PROFILE LINKS section which are provided as image_url and add respective url.
-     - Multiple content blocks: Feel free to add any of text blocks, image+text blocks, video+text blocks, and social links block at the end
+     - Multiple content blocks in MAIN CONTENT area: Use varied layouts like text blocks, image+text blocks (side-by-side), video+text blocks
      - Create medium size email template which has around 300-500 words of content
    - **Adapts the content**: Tailor the message to match the campaign brief
    - **Must NOT use any template variables** like {{{{customer.first_name}}}}, {{{{offering.name}}}}, etc.
@@ -309,15 +327,40 @@ Generate three components for this email campaign:
 IMPORTANT GUIDELINES:
 - Generate ONLY valid HTML email code (no markdown, no explanations)
 - Use only inline CSS for all styling to ensure compatibility across email clients
+- **MUST use 1-3 images from PEXELS IMAGES section** - Use the actual URLs provided, not placeholders
+- **Use alt text ONLY in the alt attribute** - Do NOT display alt text as visible text in the email
+- Include photographer credits for Pexels images: <p style="font-size: 10px; color: #999;">Photo by [photographer name]</p>
+
+**CREATIVE IMAGE LAYOUT EXAMPLES**:
+  1. **Hero Image**: `<img src="[pexels-url]" alt="..." style="width:100%; max-width:600px; height:auto;">`
+  2. **Image + Text (Left/Right)**:
+     ```
+     <table style="width:100%;">
+       <tr>
+         <td style="width:50%; padding:10px;"><img src="[pexels-url]" alt="..." style="width:100%;"></td>
+         <td style="width:50%; padding:10px; vertical-align:middle;">[Your text content here]</td>
+       </tr>
+     </table>
+     ```
+  3. **Text + Image (Right/Left)**: Reverse the columns above
+  4. Mix and match these layouts for visual variety
+
+**CRITICAL STRUCTURE RULES**:
+- ALL images, CTAs, and content blocks MUST come BEFORE the closing/signature
+- Closing/signature (e.g., "Warm wishes, Team") should be the LAST meaningful content
+- NEVER place images, buttons, or content blocks after the signature
+- Order: Content → CTA → Signature → Footer (address, social links, unsubscribe)
+
 - Include meaningful, engaging content that matches the campaign request
-- Make the email responsive and professional
-- Include a clear call-to-action
+- Make the email responsive and professional using table-based layouts
+- Include a clear call-to-action (if appropriate)
 - Use professional email styling with proper spacing, colors, and typography
 - DO NOT add markdown formatting in HTML
 - ALWAYS include the unsubscribe link: <a href="{{{{unsubscribe_link}}}}">Unsubscribe</a>
 - Use only the social links provided in SOCIAL PROFILE LINKS section
 - **Keep the email sanitised**: Do not include unsafe tags like Script, iframe etc.
 - Must NOT add any template variable in the generated HTML
+- DO NOT create placeholder images - ONLY use the provided Pexels image URLs
 
 Return your response in the following JSON format:
 {{{{
@@ -363,12 +406,15 @@ CRITICAL REQUIREMENTS:
 - Do NOT include unsafe tags like Script, iframe
 - Use inline CSS only for all styling to ensure compatibility across email clients
 - Keep all required elements: unsubscribe link, company info, social links
+- **Maintain proper email structure**: All content and images must come BEFORE the closing/signature
+- Closing/signature should be the last meaningful content before footer elements (footer = company info, social links, unsubscribe)
 - Social media links must be used from SOCIAL PROFILE LINKS section and not from the existing email templates
-- Must include all the social media links from the SOCIAL PROFILE LINKS section
-- If no social media links are provided, do not include the social links block at the end
+- Must include all the social media links from the SOCIAL PROFILE LINKS section just before signature
+- If no social media links are provided, do not include the social links block
 - Use the social links icons from the SOCIAL PROFILE LINKS section which are provided as image_url and add respective url.
-- Multiple content blocks: Feel free to add any of text blocks, image+text blocks, video+text blocks, and social links block at the end
+- Multiple content blocks: Feel free to add any of text blocks, image+text blocks, video+text blocks in the MAIN CONTENT area (before signature)
 - Create medium size email template which has around 300-500 words of content
+- Must not add any placeholder images. Only valid images should be added.
 
 Return ONLY the complete updated HTML, no explanations or markdown formatting."""),
     ("human", "Update the email template now based on the user's request.")

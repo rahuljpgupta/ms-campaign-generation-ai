@@ -1057,10 +1057,87 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             
             reference_templates = "\n\n".join(template_texts) if template_texts else "No reference templates available. Create a clean, professional email template."
         
-        # Step 3: Generate email template using LLM
+        # Step 3: Fetch relevant images from Pexels
         await send_message({
             "type": "assistant_thinking",
-            "message": "Generating your email template based on your existing campaigns...",
+            "message": "Finding perfect images for your email...",
+            "timestamp": asyncio.get_event_loop().time(),
+            "disable_input": True
+        })
+        
+        from src.utils.image_utils import get_pexels_images
+        
+        # Extract focused keywords from campaign description for image search
+        # Keep it short and focused - just the main theme/topic (e.g., "thanksgiving", "yoga", "fitness")
+        campaign_lower = campaign_description.lower()
+        
+        # Common themes/keywords to look for
+        theme_keywords = {
+            "thanksgiving": "thanksgiving",
+            "christmas": "christmas",
+            "holiday": "holiday celebration",
+            "halloween": "halloween",
+            "valentine": "valentine",
+            "fitness": "fitness workout",
+            "yoga": "yoga wellness",
+            "gym": "gym training",
+            "wellness": "spa wellness",
+            "sale": "shopping sale",
+            "discount": "shopping discount",
+            "promotion": "retail promotion",
+            "spring": "spring season",
+            "summer": "summer vacation",
+            "fall": "autumn fall",
+            "winter": "winter season",
+            "new year": "new year celebration",
+            "birthday": "birthday celebration",
+            "anniversary": "anniversary celebration"
+        }
+        
+        # Find matching theme or use first few words
+        image_search_query = "business professional"  # Default
+        for keyword, search_term in theme_keywords.items():
+            if keyword in campaign_lower:
+                image_search_query = search_term
+                break
+        else:
+            # If no theme found, extract first 2-3 meaningful words (skip common words)
+            skip_words = {"a", "an", "the", "for", "to", "and", "or", "with", "email", "campaign", "customers", "announcing"}
+            words = [w for w in campaign_description.split()[:10] if w.lower() not in skip_words]
+            if words:
+                image_search_query = " ".join(words[:3])
+        
+        # Fetch 2-3 relevant images from Pexels
+        pexels_result = await get_pexels_images(
+            query=image_search_query,
+            count=3
+        )
+        
+        # Format images for prompt
+        if "error" in pexels_result or not pexels_result.get("images"):
+            images_text = "No images available. Use existing images from reference templates if available."
+            await send_message({
+                "type": "system",
+                "message": "⚠️ Couldn't fetch images from Pexels, continuing without them.",
+                "timestamp": asyncio.get_event_loop().time(),
+                "disable_input": False
+            })
+        else:
+            images = pexels_result.get("images", [])
+            image_texts = []
+            for idx, img in enumerate(images, 1):
+                image_texts.append(
+                    f"Image {idx}:\n"
+                    f"- URL: {img['url']}\n"
+                    f"- Alt Text: {img['alt_description']}\n"
+                    f"- Photographer: {img['photographer']} ({img['photographer_url']})"
+                )
+            images_text = "\n\n".join(image_texts)
+        
+        # Step 4: Generate email template using LLM
+        await send_message({
+            "type": "assistant_thinking",
+            "message": "Generating your email template with selected images...",
             "timestamp": asyncio.get_event_loop().time(),
             "disable_input": True
         })
@@ -1071,13 +1148,14 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
         location_context = format_location_context(location)
         business_name = location.get("name", "Our Business")
         
-        # Prepare prompt
+        # Prepare prompt with Pexels images
         email_prompt = EMAIL_TEMPLATE_GENERATION_PROMPT.format_messages(
             business_name=business_name,
             location_context=location_context,
             social_links=social_links_text,
             campaign_description=campaign_description,
-            reference_templates=reference_templates
+            reference_templates=reference_templates,
+            pexels_images=images_text
         )
         
         # Generate email template, subject line, and campaign name
