@@ -1,0 +1,34 @@
+# QLoRA Fine-tuning Requirements with LangChain Integration
+# 
+# This project uses UV as the package manager.
+# Install with: uv sync
+# Or: uv pip install -r requirements.txt
+
+# Core ML Libraries
+torch>=2.0.0
+transformers>=4.35.0
+datasets>=2.14.0
+
+# PEFT (Parameter-Efficient Fine-Tuning) - includes LoRA
+peft>=0.7.0
+
+# Quantization library
+bitsandbytes>=0.41.0
+
+# Training acceleration
+accelerate>=0.24.0
+
+# LangChain for data loading and prompt formatting
+langchain>=0.1.0
+langchain-core>=0.3.0
+langchain-community>=0.0.10
+
+# Data processing
+pandas>=2.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Scientific computing
+scipy>=1.11.0
+
