@@ -32,6 +32,8 @@ class CampaignState(TypedDict):
     matched_lists: list[dict]  # Top matched smart lists from API
     fredql_query: str | list  # Generated FredQL query for new smart list
     merge_tags: list[dict]  # Available merge tags for personalization
+    social_links_text: str  # Formatted social profile links
+    reference_templates: str  # Reference email templates for inspiration
     email_template: str
     schedule_confirmed: bool
     clarifications_needed: list[str]

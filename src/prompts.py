@@ -298,14 +298,16 @@ MERGE TAG USAGE:
   * {{{{system.unsubscribe_link}}}} for unsubscribe (required in footer)
 
 REFERENCE TEMPLATES:
-Below are some recent email templates from this business. Study them carefully to understand:
-- Brand voice and writing style
-- Typical structure and layout patterns
-- Image usage and placement
-- Color schemes and font styling
-- Call-to-action patterns
-- Footer formatting
-- Subject line patterns and tone
+Below are some recent email templates from this business. **Use these as INSPIRATION and GUIDANCE** for:
+- **COLOR SCHEMES**: Prefer similar colors and tones (backgrounds, text, buttons, borders)
+- **FONT STYLING**: Consider similar font families, sizes, and weights
+- **LAYOUT PATTERNS**: Take inspiration from table structures, padding, margins
+- **BRAND VOICE**: Match the writing style, tone, and language patterns
+- **BUTTON STYLES**: Use similar styling for call-to-action buttons (colors, padding, border-radius)
+- **HEADER/FOOTER DESIGN**: Follow similar patterns for logo placement, social icons, footer structure
+- **SPACING**: Maintain professional spacing between elements
+
+**Balance creativity with consistency**: Create a fresh, engaging design that feels like it belongs to the same brand family while bringing new creative ideas to the campaign.
 
 {reference_templates}
 
@@ -323,11 +325,17 @@ Generate three components for this email campaign:
    - **DO NOT use merge tags in subject line** - Use plain text only
 
 3. **HTML Email Template**: A complete, valid HTML email that:
+   - **Draw inspiration from reference templates** while being creative:
+     * Use similar color palettes (backgrounds, text, buttons) as inspiration
+     * Consider similar font families and sizes as a starting point
+     * Take inspiration from button styling (colors, padding, border-radius)
+     * Use consistent, professional spacing between elements
+     * Follow similar layout patterns but feel free to innovate
+     * Reuse logo image URLs if present in reference templates
    - **Preserves the brand identity**: Match the writing style, tone, and language from reference templates
    - **Follows the structure**: Use similar layout patterns (header, content blocks, CTA, footer) from reference templates
    - **Includes meaningful, engaging content in the email body** - not just structure, but actual relevant content
    - **Start with a greeting** to the customer
-   - **Use existing branding elements**: Extract and use logos, brand colors, fonts from reference templates
    - **MUST include 1-3 images from PEXELS IMAGES section** - Use the actual image URLs provided above
    - **Use alt text properly**: Put alt descriptions in the `alt` attribute only (e.g., `<img src="..." alt="description">`) - do NOT display alt text as visible text
    - **Creative Image Layouts**: Use varied, engaging image placements:
@@ -361,10 +369,12 @@ Generate three components for this email campaign:
 IMPORTANT GUIDELINES:
 - Generate ONLY valid HTML email code (no markdown, no explanations)
 - Use only inline CSS for all styling to ensure compatibility across email clients
+- **Draw from reference templates**: Use similar visual styling (colors, fonts, button styles, spacing) as inspiration while being creative
 - **MUST start with a hero image** - The email MUST begin with a full-width hero image from PEXELS IMAGES
 - **MUST use 1-3 images from PEXELS IMAGES section** - Use the actual URLs provided, not placeholders
 - **Use alt text ONLY in the alt attribute** - Do NOT display alt text as visible text in the email
 - **DO NOT display photographer names or credits** - Do NOT add any text like "Photo by [photographer]" anywhere in the email
+- **Maintain brand consistency**: Create a design that feels cohesive with the brand while bringing fresh creative ideas
 - **DO NOT use merge tags in campaign name or subject line** - Merge tags are ONLY for email body content
 
 **CREATIVE IMAGE LAYOUT EXAMPLES**:
@@ -418,6 +428,9 @@ EMAIL_UPDATE_PROMPT = ChatPromptTemplate.from_messages([
 LOCATION CONTEXT:
 {location_context}
 
+SOCIAL PROFILE LINKS (use ONLY these valid links):
+{social_links}
+
 AVAILABLE MERGE TAGS (personalization/dynamic tags):
 {merge_tags}
 
@@ -436,6 +449,9 @@ MERGE TAG USAGE RULES (CRITICAL):
    - {{{{location.online_booking_url}}}} for booking links
    - {{{{location.address}}}} for business address
 
+REFERENCE TEMPLATES (for inspiration when making major changes):
+{reference_templates}
+{pexels_images}
 CURRENT EMAIL HTML:
 {current_html}
 
@@ -446,15 +462,21 @@ TASK:
 Update the provided existing email HTML based on the user's specific change request.
 
 REQUIREMENTS:
-1. **Preserve the overall structure and branding** of the existing email
-2. **Make ONLY the changes requested by the user** - do not make unnecessary modifications
-3. **Maintain proper HTML structure and inline CSS**
-4. **Keep existing styling, colors, fonts, and layout** unless specifically asked to change them
-5. **Ensure the updated email remains professional and email-client compatible**
-6. **Generate ONLY valid HTML email code** (no markdown, no explanations)
-7. **If updating content, make it engaging and relevant**
-8. **Preserve any existing images, logos, or branding elements** unless asked to change them
-9. **Maintain mobile responsiveness**
+1. **Preserve visual design by default**: Keep colors, fonts, button styles, spacing consistent unless explicitly requested to change
+   - Maintain color palette for backgrounds, text, buttons
+   - Keep font families, sizes, weights consistent
+   - Preserve button styling approach
+   - Keep spacing between elements consistent
+2. **Preserve the overall structure and branding** of the existing email
+3. **Make ONLY the changes requested by the user** - do not make unnecessary modifications
+4. **Maintain proper HTML structure and inline CSS**
+5. **Feel free to improve the design** if the user's request implies it (e.g., "make it more engaging", "improve the layout")
+6. **Ensure the updated email remains professional and email-client compatible**
+7. **Generate ONLY valid HTML email code** (no markdown, no explanations)
+8. **If updating content, make it engaging and relevant**
+9. **Preserve any existing images, logos, or branding elements** unless asked to change them
+10. **Maintain mobile responsiveness**
+11. **If user requests image changes/additions**, use ONLY the images from the NEW PEXELS IMAGES section above (if provided) - these are contextually relevant to the user's request
 
 CRITICAL REQUIREMENTS:
 - ALWAYS include the unsubscribe link: <a href="{{{{unsubscribe_link}}}}" target="_blank">Unsubscribe</a>

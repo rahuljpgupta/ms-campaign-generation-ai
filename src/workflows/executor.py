@@ -121,6 +121,8 @@ class WorkflowExecutor:
             "matched_lists": [],
             "fredql_query": "",
             "merge_tags": [],
+            "social_links_text": "",
+            "reference_templates": "",
             "email_template": "",
             "schedule_confirmed": False,
             "clarifications_needed": [],

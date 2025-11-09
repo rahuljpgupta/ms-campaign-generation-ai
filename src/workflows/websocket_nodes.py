@@ -1395,6 +1395,8 @@ async def create_campaign_ws(state: CampaignState, llm, send_message: Callable, 
             "email_html": email_html,
             "email_update_count": 0,
             "merge_tags": merge_tags_list,
+            "social_links_text": social_links_text,
+            "reference_templates": reference_templates,
             "current_step": "review_email_template"
         }
         

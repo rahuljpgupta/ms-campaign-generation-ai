@@ -92,6 +92,12 @@ async def process_email_changes_ws(state: CampaignState, llm, send_message: Call
         location_context = format_location_context(location)
         business_name = location.get("name", "Our Business")
         
+        # Get social links from state (already fetched during campaign creation)
+        social_links_text = state.get("social_links_text", "No social profile links available")
+        
+        # Get reference templates from state (already fetched during campaign creation)
+        reference_templates = state.get("reference_templates", "No reference templates available.")
+        
         # Format merge tags for prompt
         merge_tags_list = state.get("merge_tags", [])
         print(f"[Email Update] Merge tags in state: {len(merge_tags_list)} tags")
@@ -120,14 +126,111 @@ async def process_email_changes_ws(state: CampaignState, llm, send_message: Call
             print(f"[Email Update] First 3 merge tags:\n{chr(10).join(merge_tag_items[:3])}")
         print(f"[Email Update] User feedback: {user_feedback}")
         
+        # Use LLM to determine if new images are needed and extract search query
+        pexels_images_text = ""
+        
+        try:
+            from src.utils.image_utils import get_pexels_images
+            from langchain_core.prompts import ChatPromptTemplate
+            import json
+            
+            # Ask LLM to analyze if images are needed and extract query
+            image_analysis_prompt = ChatPromptTemplate.from_messages([
+                ("system", """Analyze the user's change request for an email template and determine if new images from stock photography are needed.
+
+Return a JSON response with:
+- "needs_images": true/false - Does the user want to add, change, or update images?
+- "search_query": "2-4 word query" - If needs_images is true, provide a focused search query for finding relevant stock images. If false, leave empty.
+
+Examples:
+- "change the hero image to something about yoga" → {{"needs_images": true, "search_query": "yoga class"}}
+- "add a fitness image at the top" → {{"needs_images": true, "search_query": "fitness workout"}}
+- "make the text bigger and bold" → {{"needs_images": false, "search_query": ""}}
+- "fix the grammar in the first paragraph" → {{"needs_images": false, "search_query": ""}}
+- "replace the beach photo with mountains" → {{"needs_images": true, "search_query": "mountain landscape"}}
+
+Return ONLY valid JSON, no explanations."""),
+                ("human", "User's change request: {user_request}\n\nJSON response:")
+            ])
+            
+            analysis_response = await llm.ainvoke(image_analysis_prompt.format_messages(user_request=user_feedback))
+            analysis_text = analysis_response.content.strip()
+            
+            # Clean up markdown if present
+            if analysis_text.startswith("```json"):
+                analysis_text = analysis_text[7:]
+            if analysis_text.startswith("```"):
+                analysis_text = analysis_text[3:]
+            if analysis_text.endswith("```"):
+                analysis_text = analysis_text[:-3]
+            analysis_text = analysis_text.strip()
+            
+            analysis = json.loads(analysis_text)
+            
+            if analysis.get("needs_images", False) and analysis.get("search_query", "").strip():
+                # User is requesting image changes - fetch new images from Pexels
+                image_query = analysis["search_query"].strip()
+                
+                await send_message({
+                    "type": "assistant_thinking",
+                    "message": "Fetching new images for you...",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": True
+                })
+                
+                # Fetch images from Pexels
+                pexels_result = await get_pexels_images(
+                    query=image_query,
+                    count=3
+                )
+                
+                # Format images for prompt
+                if "error" not in pexels_result and pexels_result.get("images"):
+                    images = pexels_result.get("images", [])
+                    image_texts = []
+                    for idx, img in enumerate(images, 1):
+                        image_texts.append(
+                            f"Image {idx}:\n"
+                            f"- URL: {img['url']}\n"
+                            f"- Alt Text: {img['alt_description']}\n"
+                            f"- Photographer: {img['photographer']} ({img['photographer_url']})"
+                        )
+                    pexels_images_text = "\n\n".join(image_texts)
+                    print(f"[Email Update] LLM detected image request. Fetched {len(images)} new images for query: '{image_query}'")
+                else:
+                    print(f"[Email Update] LLM detected image request but Pexels fetch failed")
+            else:
+                print(f"[Email Update] LLM determined no new images needed")
+                
+        except Exception as e:
+            print(f"[Email Update] Failed to analyze image needs or fetch images: {str(e)}")
+            # Continue without new images
+        
         # Prepare prompt for LLM
-        update_prompt = EMAIL_UPDATE_PROMPT.format_messages(
-            business_name=business_name,
-            location_context=location_context,
-            merge_tags=merge_tags_text,
-            current_html=current_html,
-            user_feedback=user_feedback
-        )
+        if pexels_images_text:
+            # Include new Pexels images in the prompt
+            update_prompt = EMAIL_UPDATE_PROMPT.format_messages(
+                business_name=business_name,
+                location_context=location_context,
+                social_links=social_links_text,
+                merge_tags=merge_tags_text,
+                reference_templates=reference_templates,
+                pexels_images=f"\n\nNEW PEXELS IMAGES (use these if user requested image changes):\n{pexels_images_text}\n",
+                current_html=current_html,
+                user_feedback=user_feedback
+            )
+        else:
+            # No new images needed
+            update_prompt = EMAIL_UPDATE_PROMPT.format_messages(
+                business_name=business_name,
+                location_context=location_context,
+                social_links=social_links_text,
+                merge_tags=merge_tags_text,
+                reference_templates=reference_templates,
+                pexels_images="",
+                current_html=current_html,
+                user_feedback=user_feedback
+            )
         
         # Get updated HTML from LLM
         response = await llm.ainvoke(update_prompt)
