@@ -218,14 +218,14 @@ Combined (AND + OR):
 ]
 
 ## Instructions
-When given an audience description, generate a valid FredQL query that:
+When given an audience description, generate a valid FredQL query AND a meaningful name that:
 1. Matches the semantic intent of the description
 2. Uses appropriate filter types and operators
 3. Converts time periods to minutes correctly
 4. Handles multiple conditions with proper AND/OR logic
 5. Uses ONLY interaction types from the valid list above (exact matches required)
 6. Uses ONLY contact properties from the list provided for this location
-7. Returns ONLY the JSON array, no explanations
+7. Generates a clear, descriptive name starting with "AI - " (2-8 words)
 
 IMPORTANT Guidelines:
 - If interaction type is mentioned, use the closest match from the valid list above
@@ -233,11 +233,15 @@ IMPORTANT Guidelines:
 - If audience can be represented with basic filters (email, interactions, etc.), generate the query
 - Be creative and flexible in interpreting user intent with available filters
 - We are working with a single location/studio.
+- The smart list name should clearly describe WHO is in this list (e.g., "AI - Recent Customers", "AI - Birthday This Month")
 
 ONLY return error if:
 - The audience CANNOT be reasonably represented with ANY combination of available properties and interaction types
 - For example: if user asks for "customers who completed_service" but only "booked_appointment" exists, 
   you can use "booked_appointment" as a reasonable proxy
+
+Success format:
+{{"fredql_query": [[...]], "smart_list_name": "AI - [descriptive name]"}}
 
 Error format (use ONLY when truly impossible):
 {{"error": "manual_creation_required", "reason": "Specific reason why this cannot be represented"}}

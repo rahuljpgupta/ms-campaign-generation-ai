@@ -448,11 +448,30 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
                     fredql_text = fredql_text[4:]
                 fredql_text = fredql_text.strip()
             
-            fredql_query = json.loads(fredql_text)
+            fredql_result = json.loads(fredql_text)
             
-            # Extract the actual query if wrapped in result object
-            if isinstance(fredql_query, dict) and "fredql_query" in fredql_query:
-                fredql_query = fredql_query["fredql_query"]
+            # Check for error response
+            if isinstance(fredql_result, dict) and "error" in fredql_result:
+                # LLM couldn't generate the query
+                error_reason = fredql_result.get("reason", "Unknown reason")
+                await send_message({
+                    "type": "error",
+                    "message": f"I had trouble creating a smart list for this audience.\n\nReason: {error_reason}\n\nPlease try rephrasing your audience description.",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "disable_input": False
+                })
+                return {
+                    "current_step": "cancelled"
+                }
+            
+            # Extract the actual query and name if wrapped in result object
+            if isinstance(fredql_result, dict) and "fredql_query" in fredql_result:
+                fredql_query = fredql_result["fredql_query"]
+                generated_smart_list_name = fredql_result.get("smart_list_name", "")
+            else:
+                # Legacy format - just the query array
+                fredql_query = fredql_result
+                generated_smart_list_name = ""
             
             # Validate interaction types in the generated FredQL (log warnings only)
             is_valid, invalid_types = validate_interaction_types(fredql_query)
@@ -496,6 +515,7 @@ async def generate_smart_list_fredql_ws(state: CampaignState, llm, send_message:
             
             return {
                 "fredql_query": fredql_query,
+                "smart_list_name": generated_smart_list_name,
                 "current_step": "create_smart_list"
             }
             
@@ -825,7 +845,7 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
         import json
         from datetime import datetime
         
-        # Use the smart list name from state if available (generated during clarifications)
+        # Use the smart list name from state if available (generated during FredQL generation)
         # Otherwise, generate a short name from audience description
         display_name = state.get("smart_list_name", "")
         
@@ -834,6 +854,10 @@ async def create_smart_list_ws(state: CampaignState, send_message: Callable, cre
             words = audience_description.split()[:4]
             short_desc = " ".join(words).capitalize()
             display_name = f"AI - {short_desc}"
+        
+        # Ensure the name starts with "AI - " if LLM forgot to add it
+        if display_name and not display_name.startswith("AI - "):
+            display_name = f"AI - {display_name}"
         
         # Ensure fredql_query is a list (not a string)
         if isinstance(fredql_query, str):
