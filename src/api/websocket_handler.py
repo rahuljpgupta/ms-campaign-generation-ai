@@ -29,7 +29,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     # Send welcome message
     await manager.send_message(client_id, {
         "type": "assistant",
-        "message": "Hey! Ready to create an amazing campaign? Tell me what you're thinking.",
+        "message": "Hey! I'm Maya, your campaign assistant. Ready to create an amazing campaign? Tell me what you're thinking.",
         "timestamp": asyncio.get_event_loop().time()
     })
     
@@ -88,7 +88,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 
                 await manager.send_message(client_id, {
                     "type": "assistant",
-                    "message": "All set! Let's start fresh. What would you like to create?",
+                    "message": "All set! Maya here, ready to start fresh. What campaign would you like to create?",
                     "timestamp": asyncio.get_event_loop().time()
                 })
     

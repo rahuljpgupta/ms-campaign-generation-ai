@@ -1,6 +1,6 @@
-# Marketing Campaign Generation AI
+# Maya - Marketing Campaign AI Assistant
 
-AI-powered marketing campaign generation using LangChain and LangGraph.
+Meet Maya, your AI-powered campaign assistant that automates marketing campaign generation using LangChain and LangGraph.
 
 ## Features
 
