@@ -83,7 +83,8 @@ async def process_smart_list_changes_ws(state: CampaignState, llm, send_message:
     user_feedback = state.get("user_feedback", "")
     smart_list_id = state.get("smart_list_id", "")
     location_id = state.get("location_id", "")
-    current_display_name = state.get("smart_list_name", "")
+    current_smart_list_name = state.get("smart_list_name", "")  # Internal API name
+    current_display_name = state.get("smart_list_display", current_smart_list_name)  # User-friendly display name
     current_fredql = state.get("fredql_query", [])
     audience_description = state.get("audience", "")
     
@@ -125,7 +126,7 @@ async def process_smart_list_changes_ws(state: CampaignState, llm, send_message:
         update_prompt = f"""You are updating an existing smart list based on user feedback.
 
 Current Smart List:
-- Name: {current_display_name}
+- Display Name: {current_display_name}
 - Audience: {audience_description}
 - Current FredQL: {escaped_fredql}
 
@@ -135,6 +136,7 @@ User's Requested Changes:
 Update the smart list according to the user's feedback. Generate the updated FredQL query.
 
 CRITICAL RULES:
+- PRESERVE the display_name UNLESS the user explicitly asks to change/rename it
 - If removing a filter, COMPLETELY REMOVE IT from the array - do not leave empty objects
 - If adding a filter, include ALL required fields (filter_type, operator, etc.)
 - For interaction filters: MUST have filter_type="interaction", operator="has_interaction" or "has_no_interaction", and interaction_type
@@ -151,9 +153,11 @@ EXAMPLES:
 Return ONLY valid JSON in this format:
 {{{{
     "fredql_query": [[{{{{...}}}}]],
-    "display_name": "updated name if changed, otherwise keep the same",
+    "display_name": "{current_display_name}",
     "explanation": "brief explanation of changes made"
 }}}}
+
+NOTE: Only change display_name if user explicitly requested a name change (e.g., "rename to X", "change name to Y")
 
 If the requested changes are not possible, return:
 {{{{
@@ -338,15 +342,20 @@ If the requested changes are not possible, return:
             }
         
         # Extract the updated name from the API response
-        # Use 'name' attribute (not 'display_name') as it's required for campaign scheduling API
+        # Preserve internal name (smart_list_name) unless it changed in the API response
+        # Update display name (smart_list_display) from the API response
         updated_data = update_result.get("data", {})
         if isinstance(updated_data, dict):
             attrs = updated_data.get("attributes", {})
-            response_name = attrs.get("name", updated_name)
+            response_name = attrs.get("name", current_smart_list_name)  # Fallback to current internal name
             response_display = attrs.get("display_name") or response_name
             if response_name:
                 updated_name = response_name
                 updated_display = response_display
+        else:
+            # If no valid response, preserve current names
+            updated_name = current_smart_list_name
+            updated_display = current_display_name
         
         # Success! Refresh the UI to show updated list
         await send_message({
