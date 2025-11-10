@@ -62,7 +62,7 @@ class QLoRAConfig:
     ])
     
     # Training Settings
-    num_train_epochs: int = 3
+    num_train_epochs: int = 1
     per_device_train_batch_size: int = 4
     gradient_accumulation_steps: int = 1
     learning_rate: float = 2e-4
